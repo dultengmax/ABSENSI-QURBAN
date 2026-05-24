@@ -343,7 +343,6 @@ export default function QRScanner() {
         <div className="page-header">
           <div>
             <h1 className="page-title">Scanner Absensi QR</h1>
-            <p className="page-subtitle">Scan QR karyawan untuk `CHECK_IN`, `BREAKFAST`, `LUNCH`, atau `DINNER`.</p>
           </div>
         </div>
 
