@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SessionType {
+  CHECK_IN
+  BREAKFAST
+  LUNCH
+  DINNER
+}
+
+enum ScanMethod {
+  QR
+  RFID
+  MANUAL
+}
+
+model Department {
+  id        Int        @id @default(autoincrement())
+  name      String
+  code      String     @unique
+  employees Employee[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("departments")
+}
+
+model Location {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  address            String?
+  timezone           String              @default("Asia/Jakarta")
+  employees          Employee[]
+  attendanceSessions AttendanceSession[]
+  workSchedule       WorkSchedule?
+  dailySummaries     DailySummary[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@map("locations")
+}
+
+model WorkSchedule {
+  id              Int      @id @default(autoincrement())
+  location        Location @relation(fields: [locationId], references: [id])
+  locationId      Int      @unique
+  checkInStart    String   @default("07:00")
+  checkInDeadline String   @default("09:00")
+  breakfastStart  String   @default("06:30")
+  breakfastEnd    String   @default("08:30")
+  lunchStart      String   @default("11:30")
+  lunchEnd        String   @default("13:00")
+  dinnerStart     String   @default("16:30")
+  dinnerEnd       String   @default("18:00")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("work_schedules")
+}
+
+model Employee {
+  id                 Int                 @id @default(autoincrement())
+  nik                String              @unique
+  name               String
+  position           String?
+  phone              String?
+  cabang             String?
+  isActive           Boolean             @default(true)
+  department         Department          @relation(fields: [departmentId], references: [id])
+  departmentId       Int
+  location           Location            @relation(fields: [locationId], references: [id])
+  locationId         Int
+  qrCode             String              @unique @default(uuid())
+  attendanceSessions AttendanceSession[]
+  dailySummaries     DailySummary[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([departmentId])
+  @@index([locationId])
+  @@map("employees")
+}
+
+model AttendanceSession {
+  id          Int         @id @default(autoincrement())
+  employee    Employee    @relation(fields: [employeeId], references: [id])
+  employeeId  Int
+  location    Location    @relation(fields: [locationId], references: [id])
+  locationId  Int
+  date        DateTime    @db.Date
+  sessionType SessionType
+  scannedAt   DateTime
+  scanMethod  ScanMethod  @default(QR)
+  isLate      Boolean     @default(false)
+  lateMinutes Int         @default(0)
+  note        String?
+  createdAt   DateTime    @default(now())
+
+  @@unique([employeeId, date, sessionType])
+  @@index([date, locationId])
+  @@index([employeeId, date])
+  @@map("attendance_sessions")
+}
+
+model DailySummary {
+  id            Int      @id @default(autoincrement())
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  employeeId    Int
+  location      Location @relation(fields: [locationId], references: [id])
+  locationId    Int
+  date          DateTime @db.Date
+  checkInDone   Boolean  @default(false)
+  breakfastDone Boolean  @default(false)
+  lunchDone     Boolean  @default(false)
+  dinnerDone    Boolean  @default(false)
+  allComplete   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([date, locationId])
+  @@map("daily_summaries")
+}

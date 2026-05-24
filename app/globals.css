@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 210 28% 97%;
+    --foreground: 222 34% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 34% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 34% 11%;
+    --primary: 168 76% 25%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 18% 93%;
+    --secondary-foreground: 218 30% 16%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 216 12% 43%;
+    --accent: 43 86% 90%;
+    --accent-foreground: 36 72% 21%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 18% 86%;
+    --input: 214 18% 86%;
+    --ring: 168 76% 25%;
+    --chart-1: 168 76% 32%;
+    --chart-2: 204 78% 42%;
+    --chart-3: 40 86% 52%;
+    --chart-4: 349 72% 58%;
+    --chart-5: 259 55% 58%;
+    --radius: 0.5rem;
+    --sidebar-background: 205 42% 11%;
+    --sidebar-foreground: 205 22% 92%;
+    --sidebar-primary: 168 76% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 171 53% 19%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 205 34% 18%;
+    --sidebar-ring: 168 76% 40%;
+  }
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply min-h-full bg-background;
+  }
+
+  body {
+    @apply min-h-screen bg-background text-foreground antialiased;
+    font-family: "Aptos", "Segoe UI Variable", "Segoe UI", "Trebuchet MS", sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04";
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    letter-spacing: 0;
+  }
+
+  ::selection {
+    @apply bg-emerald-200 text-emerald-950;
+  }
+}
+
+@layer components {
+  .app-page {
+    @apply min-h-[calc(100svh-4rem)] bg-background text-foreground;
+    background-image:
+      linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .page-container {
+    @apply mx-auto w-full max-w-7xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 sm:py-6 lg:px-8;
+  }
+
+  .page-container-narrow {
+    @apply mx-auto w-full max-w-4xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 sm:py-6 lg:px-8;
+  }
+
+  .page-header {
+    @apply flex flex-col gap-4 border-b border-border/80 pb-5 lg:flex-row lg:items-end lg:justify-between;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold leading-tight text-foreground sm:text-3xl;
+  }
+
+  .page-subtitle {
+    @apply mt-1 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base;
+  }
+
+  .page-actions {
+    @apply flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center;
+  }
+
+  .page-actions > * {
+    @apply w-full sm:w-auto;
+  }
+
+  .stat-grid {
+    @apply grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4;
+  }
+
+  .toolbar-grid {
+    @apply grid gap-4 md:grid-cols-3;
+  }
+
+  .tabs-responsive {
+    @apply grid h-auto min-h-10 w-full gap-1 rounded-lg bg-muted p-1 text-muted-foreground sm:inline-flex sm:w-auto;
+  }
+
+  .table-shell {
+    @apply overflow-x-auto rounded-lg border border-border bg-card shadow-sm;
+  }
+
+  .empty-panel {
+    @apply rounded-lg border border-dashed border-border bg-muted/40 p-6 text-center text-sm text-muted-foreground;
+  }
+}
