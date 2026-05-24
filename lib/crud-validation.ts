@@ -44,6 +44,10 @@ export const workScheduleCreateSchema = z.object({
   lunchEnd: timeSchema.default("13:00"),
   dinnerStart: timeSchema.default("16:30"),
   dinnerEnd: timeSchema.default("18:00"),
+  meatDistributionStart: timeSchema.default("13:00"),
+  meatDistributionEnd: timeSchema.default("16:00"),
+  logisticsStart: timeSchema.default("06:00"),
+  logisticsEnd: timeSchema.default("18:30"),
 })
 
 export const workScheduleUpdateSchema = idSchema.extend({
@@ -56,6 +60,10 @@ export const workScheduleUpdateSchema = idSchema.extend({
   lunchEnd: timeSchema.optional(),
   dinnerStart: timeSchema.optional(),
   dinnerEnd: timeSchema.optional(),
+  meatDistributionStart: timeSchema.optional(),
+  meatDistributionEnd: timeSchema.optional(),
+  logisticsStart: timeSchema.optional(),
+  logisticsEnd: timeSchema.optional(),
 })
 
 export const employeeCreateSchema = z.object({
@@ -114,6 +122,8 @@ export const dailySummaryCreateSchema = z.object({
   breakfastDone: optionalBoolean.default(false),
   lunchDone: optionalBoolean.default(false),
   dinnerDone: optionalBoolean.default(false),
+  meatDistributionDone: optionalBoolean.default(false),
+  logisticsDone: optionalBoolean.default(false),
   allComplete: optionalBoolean.default(false),
 })
 
@@ -125,5 +135,7 @@ export const dailySummaryUpdateSchema = idSchema.extend({
   breakfastDone: optionalBoolean,
   lunchDone: optionalBoolean,
   dinnerDone: optionalBoolean,
+  meatDistributionDone: optionalBoolean,
+  logisticsDone: optionalBoolean,
   allComplete: optionalBoolean,
 })

@@ -204,6 +204,8 @@ export async function getDailyStatus(locationId: number, date: string) {
         breakfast: summary?.breakfastDone ?? false,
         lunch: summary?.lunchDone ?? false,
         dinner: summary?.dinnerDone ?? false,
+        meatDistribution: summary?.meatDistributionDone ?? false,
+        logistics: summary?.logisticsDone ?? false,
       },
       allComplete: summary?.allComplete ?? false,
     }
@@ -266,6 +268,8 @@ export async function getMonthlySummary(employeeId: number, year: number, month:
       breakfast: summaries.filter((summary) => summary.breakfastDone).length,
       lunch: summaries.filter((summary) => summary.lunchDone).length,
       dinner: summaries.filter((summary) => summary.dinnerDone).length,
+      meatDistribution: summaries.filter((summary) => summary.meatDistributionDone).length,
+      logistics: summaries.filter((summary) => summary.logisticsDone).length,
     },
     daily: summaries,
   }
@@ -289,7 +293,12 @@ async function updateDailySummary(employeeId: number, locationId: number, date: 
   })
 
   const allComplete =
-    summary.checkInDone && summary.breakfastDone && summary.lunchDone && summary.dinnerDone
+    summary.checkInDone &&
+    summary.breakfastDone &&
+    summary.lunchDone &&
+    summary.dinnerDone &&
+    summary.meatDistributionDone &&
+    summary.logisticsDone
 
   if (allComplete && !summary.allComplete) {
     await prisma.dailySummary.update({
@@ -321,6 +330,10 @@ function getWindow(
     lunchEnd: string
     dinnerStart: string
     dinnerEnd: string
+    meatDistributionStart: string
+    meatDistributionEnd: string
+    logisticsStart: string
+    logisticsEnd: string
   },
   sessionType: SessionType,
 ) {
@@ -329,17 +342,24 @@ function getWindow(
     BREAKFAST: { start: schedule.breakfastStart, end: schedule.breakfastEnd },
     LUNCH: { start: schedule.lunchStart, end: schedule.lunchEnd },
     DINNER: { start: schedule.dinnerStart, end: schedule.dinnerEnd },
+    MEAT_DISTRIBUTION: { start: schedule.meatDistributionStart, end: schedule.meatDistributionEnd },
+    LOGISTICS_COMPLETENESS: { start: schedule.logisticsStart, end: schedule.logisticsEnd },
   }
 
   return map[sessionType]
 }
 
 function sessionSummaryField(sessionType: SessionType) {
-  const map: Record<SessionType, "checkInDone" | "breakfastDone" | "lunchDone" | "dinnerDone"> = {
+  const map: Record<
+    SessionType,
+    "checkInDone" | "breakfastDone" | "lunchDone" | "dinnerDone" | "meatDistributionDone" | "logisticsDone"
+  > = {
     CHECK_IN: "checkInDone",
     BREAKFAST: "breakfastDone",
     LUNCH: "lunchDone",
     DINNER: "dinnerDone",
+    MEAT_DISTRIBUTION: "meatDistributionDone",
+    LOGISTICS_COMPLETENESS: "logisticsDone",
   }
 
   return map[sessionType]
@@ -351,6 +371,8 @@ function sessionLabel(sessionType: SessionType) {
     BREAKFAST: "Makan pagi",
     LUNCH: "Makan siang",
     DINNER: "Makan sore",
+    MEAT_DISTRIBUTION: "Pembagian daging",
+    LOGISTICS_COMPLETENESS: "Kelengkapan logistik",
   }
 
   return map[sessionType]

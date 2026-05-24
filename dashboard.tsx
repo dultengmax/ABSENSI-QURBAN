@@ -35,6 +35,7 @@ import {
   Coffee,
   Download,
   MapPin,
+  PackageCheck,
   Pencil,
   Plus,
   Search,
@@ -89,6 +90,8 @@ const statCards = [
   { key: "breakfast", title: "Makan Pagi", icon: Coffee, tone: "text-amber-700 bg-amber-50" },
   { key: "lunch", title: "Makan Siang", icon: Utensils, tone: "text-sky-700 bg-sky-50" },
   { key: "dinner", title: "Makan Sore", icon: Clock, tone: "text-rose-700 bg-rose-50" },
+  { key: "meatDistribution", title: "Pembagian Daging", icon: PackageCheck, tone: "text-violet-700 bg-violet-50" },
+  { key: "logistics", title: "Kelengkapan Logistik", icon: ShieldCheck, tone: "text-teal-700 bg-teal-50" },
 ] as const
 
 const cabangOptions = ["1", "2", "3", "4"] as const
@@ -387,7 +390,7 @@ export default function AttendanceDashboard() {
       <div className="page-container">
         <div className="page-header">
           <div>
-            <h1 className="page-title">Dashboard Absensi 4 Sesi</h1>
+            <h1 className="page-title">Dashboard Absensi 6 Sesi</h1>
             <p className="page-subtitle">
               Menerapkan aturan `SISTEM_ABSENSI.md`: satu scan per sesi, makan wajib setelah absen datang, dan window waktu per lokasi.
             </p>
@@ -879,7 +882,7 @@ export default function AttendanceDashboard() {
 
         <Card className="overflow-hidden">
           <CardContent className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_280px]">
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
               {sessionOrder.map((sessionType) => {
                 const window = getSessionWindow(selectedLocationDetail, sessionType)
                 return (
@@ -891,7 +894,7 @@ export default function AttendanceDashboard() {
               })}
             </div>
             <div className="rounded-lg bg-primary p-4 text-primary-foreground">
-              <p className="text-sm font-medium">Kelengkapan 4 sesi</p>
+              <p className="text-sm font-medium">Kelengkapan {sessionOrder.length} sesi</p>
               <div className="mt-2 text-3xl font-semibold">{completionRate}%</div>
               <p className="mt-1 text-xs opacity-85">Berdasarkan filter aktif.</p>
             </div>
@@ -1005,7 +1008,7 @@ export default function AttendanceDashboard() {
                           ))}
                           <TableCell>
                             <Badge className={row.allComplete ? "bg-emerald-600" : "bg-slate-500"}>
-                              {row.completeCount}/4 sesi
+                              {row.completeCount}/{sessionOrder.length} sesi
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -1106,7 +1109,7 @@ export default function AttendanceDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm leading-6 text-muted-foreground">
-                  `BREAKFAST`, `LUNCH`, dan `DINNER` ditolak bila `CHECK_IN` belum tercatat pada tanggal yang sama.
+                  Semua sesi lanjutan, termasuk pembagian daging dan kelengkapan logistik, ditolak bila `CHECK_IN` belum tercatat pada tanggal yang sama.
                 </CardContent>
               </Card>
               <Card>

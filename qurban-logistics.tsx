@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -31,7 +31,24 @@ import {
   CheckCircle2,
   Clock,
   Scale,
+  AlertCircle,
 } from "lucide-react"
+
+type LogisticsStatus = "AVAILABLE" | "LIMITED" | "UNAVAILABLE" | "MAINTENANCE"
+
+type QurbanLogisticsItem = {
+  id: number
+  name: string
+  category?: string | null
+  ownerName: string
+  ownerContact?: string | null
+  quantity: number
+  available: number
+  unit: string
+  status: LogisticsStatus
+  storageLocation?: string | null
+  notes?: string | null
+}
 
 // Sample data for qurban animals
 const qurbanAnimals = [
@@ -87,42 +104,71 @@ const qurbanAnimals = [
   },
 ]
 
-// Sample data for logistics equipment
-const logisticsEquipment = [
+const fallbackLogisticsEquipment: QurbanLogisticsItem[] = [
   {
     id: 1,
     name: "Pisau Besar",
+    category: "Penyembelihan",
+    ownerName: "Tim Penyembelih",
+    ownerContact: "Ust. Abdul",
     quantity: 5,
     available: 3,
-    status: "available",
+    unit: "buah",
+    status: "LIMITED",
+    storageLocation: "Meja alat utama",
+    notes: "Dua pisau sedang diasah ulang.",
   },
   {
     id: 2,
     name: "Tali Pengikat",
+    category: "Penanganan Hewan",
+    ownerName: "Tim Logistik",
+    ownerContact: "Bpk. Dani",
     quantity: 10,
     available: 8,
-    status: "available",
+    unit: "ikat",
+    status: "AVAILABLE",
+    storageLocation: "Gudang logistik",
+    notes: "Cadangan untuk area sapi dan domba.",
   },
   {
     id: 3,
     name: "Alas Terpal",
+    category: "Area Kerja",
+    ownerName: "DKM Masjid Al-Ikhlas",
+    ownerContact: "Sekretariat DKM",
     quantity: 4,
     available: 2,
-    status: "limited",
+    unit: "lembar",
+    status: "LIMITED",
+    storageLocation: "Sisi area recah",
+    notes: "Dua terpal dipakai di area timbang.",
   },
   {
     id: 4,
     name: "Ember Besar",
+    category: "Kebersihan",
+    ownerName: "Tim Kebersihan",
+    ownerContact: "Bpk. Joko",
     quantity: 8,
     available: 8,
-    status: "available",
+    unit: "buah",
+    status: "AVAILABLE",
+    storageLocation: "Pos kebersihan",
+    notes: "Siap pakai untuk alur pembersihan.",
   },
   {
     id: 5,
     name: "Timbangan",
+    category: "Packing",
+    ownerName: "Tim Timbang dan Packing",
+    ownerContact: "Bpk. Rahmat",
     quantity: 2,
     available: 0,
-    status: "unavailable",
+    unit: "unit",
+    status: "UNAVAILABLE",
+    storageLocation: "Area packing",
+    notes: "Menunggu baterai cadangan.",
   },
 ]
 
@@ -192,12 +238,35 @@ const distributionData = [
   },
 ]
 
+const qurbanScheduleSessions = [
+  {
+    id: "meat-distribution",
+    title: "Pembagian Daging",
+    time: "13:00 - 16:00",
+    owner: "Tim Distribusi",
+    status: "in-progress",
+    detail: "Validasi paket daging, serah terima penerima, dan sisa distribusi.",
+  },
+  {
+    id: "logistics-completeness",
+    title: "Kelengkapan Logistik",
+    time: "06:00 - 18:30",
+    owner: "Tim Logistik",
+    status: "pending",
+    detail: "Cek alat, stok pendukung, kebersihan area, dan pengembalian perlengkapan.",
+  },
+]
+
 export default function QurbanLogistics() {
-  const [selectedTab, setSelectedTab] = useState("animals")
+  const [selectedTab, setSelectedTab] = useState("logistics")
   const [searchTerm, setSearchTerm] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [isAddAnimalDialogOpen, setIsAddAnimalDialogOpen] = useState(false)
   const [isAddEquipmentDialogOpen, setIsAddEquipmentDialogOpen] = useState(false)
+  const [logisticsItems, setLogisticsItems] = useState<QurbanLogisticsItem[]>(fallbackLogisticsEquipment)
+  const [logisticsError, setLogisticsError] = useState<string | null>(null)
+  const [isSavingEquipment, setIsSavingEquipment] = useState(false)
+  const equipmentFormRef = useRef<HTMLFormElement>(null)
 
   // Filter animals based on search and status
   const filteredAnimals = qurbanAnimals.filter((animal) => {
@@ -220,6 +289,85 @@ export default function QurbanLogistics() {
 
   const totalMeatDistributed = distributionData.reduce((sum, item) => sum + item.distributed, 0)
   const totalPackages = distributionData.reduce((sum, item) => sum + item.packages, 0)
+  const filteredLogisticsItems = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase()
+    return logisticsItems
+      .filter((item) => {
+        if (filterStatus === "all") return true
+        return item.status === normalizeLogisticsStatus(filterStatus)
+      })
+      .filter((item) => {
+        if (!search) return true
+        return (
+          item.name.toLowerCase().includes(search) ||
+          item.ownerName.toLowerCase().includes(search) ||
+          (item.category ?? "").toLowerCase().includes(search) ||
+          (item.storageLocation ?? "").toLowerCase().includes(search)
+        )
+      })
+  }, [filterStatus, logisticsItems, searchTerm])
+  const totalLogisticsItems = logisticsItems.length
+  const unavailableLogisticsItems = logisticsItems.filter((item) => item.status === "UNAVAILABLE").length
+  const limitedLogisticsItems = logisticsItems.filter((item) => item.status === "LIMITED").length
+  const totalAvailableUnits = logisticsItems.reduce((sum, item) => sum + item.available, 0)
+
+  useEffect(() => {
+    async function loadLogistics() {
+      try {
+        const response = await fetch("/api/qurban/logistics", { cache: "no-store" })
+        const payload = (await response.json()) as {
+          success?: boolean
+          data?: QurbanLogisticsItem[]
+          message?: string
+        }
+
+        if (!response.ok || !payload.success || !Array.isArray(payload.data)) {
+          throw new Error(payload.message ?? "Gagal memuat data logistik.")
+        }
+
+        setLogisticsItems(payload.data)
+        setLogisticsError(null)
+      } catch (error) {
+        setLogisticsError(error instanceof Error ? error.message : "Gagal memuat data logistik.")
+      }
+    }
+
+    void loadLogistics()
+  }, [])
+
+  const handleCreateEquipment = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setIsSavingEquipment(true)
+    setLogisticsError(null)
+
+    const formData = new FormData(event.currentTarget)
+    const body = Object.fromEntries(formData.entries())
+
+    try {
+      const response = await fetch("/api/qurban/logistics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const payload = (await response.json()) as {
+        success?: boolean
+        data?: QurbanLogisticsItem
+        message?: string
+      }
+
+      if (!response.ok || !payload.success || !payload.data) {
+        throw new Error(payload.message ?? "Gagal menyimpan data logistik.")
+      }
+
+      setLogisticsItems((current) => [payload.data!, ...current])
+      equipmentFormRef.current?.reset()
+      setIsAddEquipmentDialogOpen(false)
+    } catch (error) {
+      setLogisticsError(error instanceof Error ? error.message : "Gagal menyimpan data logistik.")
+    } finally {
+      setIsSavingEquipment(false)
+    }
+  }
 
   // Status badge renderer
   const getStatusBadge = (status: string) => {
@@ -243,19 +391,24 @@ export default function QurbanLogistics() {
           </Badge>
         )
       case "available":
+      case "AVAILABLE":
         return (
           <Badge variant="default" className="bg-green-500">
             Tersedia
           </Badge>
         )
       case "limited":
+      case "LIMITED":
         return (
           <Badge variant="default" className="bg-yellow-500">
             Terbatas
           </Badge>
         )
       case "unavailable":
+      case "UNAVAILABLE":
         return <Badge variant="destructive">Tidak Tersedia</Badge>
+      case "MAINTENANCE":
+        return <Badge variant="outline">Perawatan</Badge>
       case "active":
         return (
           <Badge variant="default" className="bg-green-500">
@@ -278,14 +431,20 @@ export default function QurbanLogistics() {
         <div className="page-header">
           <div>
             <h1 className="page-title">Manajemen Logistik Qurban</h1>
-            <p className="page-subtitle">Kelola hewan, peralatan, dan distribusi qurban</p>
+            <p className="page-subtitle">Kelola hewan, peralatan, distribusi daging, dan kelengkapan logistik qurban</p>
           </div>
           <div className="page-actions">
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button size="sm" onClick={() => setSelectedTab("animals")}>
+            <Button
+              size="sm"
+              onClick={() => {
+                setSelectedTab("logistics")
+                setIsAddEquipmentDialogOpen(true)
+              }}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Tambah Data
             </Button>
@@ -377,7 +536,7 @@ export default function QurbanLogistics() {
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="search"
-                    placeholder="Cari hewan atau pemilik..."
+                    placeholder="Cari peralatan, pemilik, atau lokasi..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-8"
@@ -392,15 +551,39 @@ export default function QurbanLogistics() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Status</SelectItem>
-                    <SelectItem value="completed">Selesai</SelectItem>
-                    <SelectItem value="in-progress">Proses</SelectItem>
-                    <SelectItem value="pending">Menunggu</SelectItem>
+                    <SelectItem value="AVAILABLE">Tersedia</SelectItem>
+                    <SelectItem value="LIMITED">Terbatas</SelectItem>
+                    <SelectItem value="UNAVAILABLE">Tidak Tersedia</SelectItem>
+                    <SelectItem value="MAINTENANCE">Perawatan</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        <section className="grid gap-4 md:grid-cols-2">
+          {qurbanScheduleSessions.map((session) => (
+            <Card key={session.id}>
+              <CardHeader className="space-y-0 pb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base">{session.title}</CardTitle>
+                    <CardDescription>{session.owner}</CardDescription>
+                  </div>
+                  {getStatusBadge(session.status)}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  {session.time}
+                </div>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">{session.detail}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
 
         {/* Main Content */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
@@ -412,7 +595,7 @@ export default function QurbanLogistics() {
           </TabsList>
 
           {/* Animals Tab */}
-          <TabsContent value="animals">
+          {/* <TabsContent value="animals">
             <Card>
               <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -517,7 +700,7 @@ export default function QurbanLogistics() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent> */}
 
           {/* Logistics Tab */}
           <TabsContent value="logistics">
@@ -525,7 +708,7 @@ export default function QurbanLogistics() {
               <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle>Peralatan Logistik</CardTitle>
-                  <CardDescription>Kelola ketersediaan peralatan untuk penyembelihan</CardDescription>
+                  <CardDescription>Kelola ketersediaan peralatan, pemilik, dan lokasi simpan.</CardDescription>
                 </div>
                 <Dialog open={isAddEquipmentDialogOpen} onOpenChange={setIsAddEquipmentDialogOpen}>
                   <DialogTrigger asChild>
@@ -539,52 +722,119 @@ export default function QurbanLogistics() {
                       <DialogTitle>Tambah Peralatan</DialogTitle>
                       <DialogDescription>Masukkan data peralatan baru</DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                    <form ref={equipmentFormRef} onSubmit={handleCreateEquipment} className="grid gap-4 py-4">
                       <div className="grid gap-2">
                         <Label htmlFor="equipment-name">Nama Peralatan</Label>
-                        <Input id="equipment-name" placeholder="Nama peralatan" />
+                        <Input id="equipment-name" name="name" placeholder="Nama peralatan" required />
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                          <Label htmlFor="equipment-category">Kategori</Label>
+                          <Input id="equipment-category" name="category" placeholder="Packing, kebersihan..." />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="equipment-unit">Satuan</Label>
+                          <Input id="equipment-unit" name="unit" placeholder="unit, buah, lembar" defaultValue="unit" />
+                        </div>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                          <Label htmlFor="equipment-owner">Punya Siapa</Label>
+                          <Input id="equipment-owner" name="ownerName" placeholder="Tim / nama pemilik" required />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="equipment-owner-contact">Kontak Penanggung Jawab</Label>
+                          <Input id="equipment-owner-contact" name="ownerContact" placeholder="Nama / nomor kontak" />
+                        </div>
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                           <Label htmlFor="equipment-quantity">Total Jumlah</Label>
-                          <Input id="equipment-quantity" type="number" placeholder="0" />
+                          <Input id="equipment-quantity" name="quantity" type="number" min="0" placeholder="0" required />
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="equipment-available">Jumlah Tersedia</Label>
-                          <Input id="equipment-available" type="number" placeholder="0" />
+                          <Input id="equipment-available" name="available" type="number" min="0" placeholder="0" required />
                         </div>
                       </div>
                       <div className="grid gap-2">
-                        <Label htmlFor="equipment-notes">Catatan</Label>
-                        <Textarea id="equipment-notes" placeholder="Catatan tambahan..." />
+                        <Label htmlFor="equipment-storage">Lokasi Simpan</Label>
+                        <Input id="equipment-storage" name="storageLocation" placeholder="Gudang, meja packing, pos distribusi..." />
                       </div>
-                    </div>
-                    <DialogFooter>
-                      <Button type="submit" onClick={() => setIsAddEquipmentDialogOpen(false)}>
-                        Simpan Data
-                      </Button>
-                    </DialogFooter>
+                      <div className="grid gap-2">
+                        <Label htmlFor="equipment-notes">Catatan</Label>
+                        <Textarea id="equipment-notes" name="notes" placeholder="Catatan tambahan..." />
+                      </div>
+                      <DialogFooter>
+                        <Button type="submit" disabled={isSavingEquipment}>
+                          {isSavingEquipment ? "Menyimpan..." : "Simpan Data"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
                   </DialogContent>
                 </Dialog>
               </CardHeader>
               <CardContent>
+                {logisticsError && (
+                  <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div>
+                        <p className="font-semibold">Data logistik belum sinkron</p>
+                        <p>{logisticsError}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="mb-4 grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">Jenis Barang</p>
+                    <p className="mt-1 text-2xl font-semibold">{totalLogisticsItems}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">Unit Tersedia</p>
+                    <p className="mt-1 text-2xl font-semibold">{totalAvailableUnits}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">Terbatas</p>
+                    <p className="mt-1 text-2xl font-semibold">{limitedLogisticsItems}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">Tidak Tersedia</p>
+                    <p className="mt-1 text-2xl font-semibold">{unavailableLogisticsItems}</p>
+                  </div>
+                </div>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nama Peralatan</TableHead>
+                        <TableHead>Punya Siapa</TableHead>
                         <TableHead>Total</TableHead>
                         <TableHead>Tersedia</TableHead>
+                        <TableHead>Lokasi</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Aksi</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {logisticsEquipment.map((equipment) => (
+                      {filteredLogisticsItems.map((equipment) => (
                         <TableRow key={equipment.id}>
-                          <TableCell className="font-medium">{equipment.name}</TableCell>
-                          <TableCell>{equipment.quantity}</TableCell>
-                          <TableCell>{equipment.available}</TableCell>
+                          <TableCell>
+                            <div className="font-medium">{equipment.name}</div>
+                            <div className="text-xs text-muted-foreground">{equipment.category ?? "Tanpa kategori"}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{equipment.ownerName}</div>
+                            <div className="text-xs text-muted-foreground">{equipment.ownerContact ?? "Kontak belum diisi"}</div>
+                          </TableCell>
+                          <TableCell>
+                            {equipment.quantity} {equipment.unit}
+                          </TableCell>
+                          <TableCell>
+                            {equipment.available} {equipment.unit}
+                          </TableCell>
+                          <TableCell>{equipment.storageLocation ?? "-"}</TableCell>
                           <TableCell>{getStatusBadge(equipment.status)}</TableCell>
                           <TableCell>
                             <Button variant="outline" size="sm">
@@ -593,6 +843,13 @@ export default function QurbanLogistics() {
                           </TableCell>
                         </TableRow>
                       ))}
+                      {filteredLogisticsItems.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                            Tidak ada data logistik sesuai filter.
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -813,4 +1070,8 @@ export default function QurbanLogistics() {
       </div>
     </div>
   )
+}
+
+function normalizeLogisticsStatus(value: string): LogisticsStatus {
+  return value.trim().toUpperCase().replaceAll("-", "_") as LogisticsStatus
 }

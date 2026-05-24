@@ -161,11 +161,15 @@ async function syncDailySummary(tx: Tx, employeeId: number, locationId: number, 
     breakfastDone: done.has(SessionType.BREAKFAST),
     lunchDone: done.has(SessionType.LUNCH),
     dinnerDone: done.has(SessionType.DINNER),
+    meatDistributionDone: done.has(SessionType.MEAT_DISTRIBUTION),
+    logisticsDone: done.has(SessionType.LOGISTICS_COMPLETENESS),
     allComplete:
       done.has(SessionType.CHECK_IN) &&
       done.has(SessionType.BREAKFAST) &&
       done.has(SessionType.LUNCH) &&
-      done.has(SessionType.DINNER),
+      done.has(SessionType.DINNER) &&
+      done.has(SessionType.MEAT_DISTRIBUTION) &&
+      done.has(SessionType.LOGISTICS_COMPLETENESS),
   }
 
   await tx.dailySummary.upsert({
@@ -242,6 +246,10 @@ function getWindow(
     lunchEnd: string
     dinnerStart: string
     dinnerEnd: string
+    meatDistributionStart: string
+    meatDistributionEnd: string
+    logisticsStart: string
+    logisticsEnd: string
   },
   sessionType: SessionType,
 ) {
@@ -250,6 +258,8 @@ function getWindow(
     BREAKFAST: { start: schedule.breakfastStart, end: schedule.breakfastEnd },
     LUNCH: { start: schedule.lunchStart, end: schedule.lunchEnd },
     DINNER: { start: schedule.dinnerStart, end: schedule.dinnerEnd },
+    MEAT_DISTRIBUTION: { start: schedule.meatDistributionStart, end: schedule.meatDistributionEnd },
+    LOGISTICS_COMPLETENESS: { start: schedule.logisticsStart, end: schedule.logisticsEnd },
   }
 
   return map[sessionType]

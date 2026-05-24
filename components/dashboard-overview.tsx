@@ -60,14 +60,14 @@ const metrics: MetricCard[] = [
   {
     label: "Panitia Terdata",
     value: String(attendanceSummary.totalEmployees),
-    delta: `${attendanceSummary.complete} lengkap 4 sesi`,
+    delta: `${attendanceSummary.complete} lengkap 6 sesi`,
     icon: Users,
     accent: "bg-emerald-50 text-emerald-700 ring-emerald-100",
   },
   {
     label: "Scan Sesi Hari Ini",
     value: String(initialAttendanceSessions.length),
-    delta: "CHECK_IN + 3 sesi makan",
+    delta: "CHECK_IN + makan + daging + logistik",
     icon: Utensils,
     accent: "bg-amber-50 text-amber-700 ring-amber-100",
   },
@@ -90,7 +90,7 @@ const metrics: MetricCard[] = [
 const modules: ModuleCard[] = [
   {
     title: "Kehadiran Panitia",
-    description: "Absensi 4 sesi, jadwal lokasi, dan rekap harian.",
+    description: "Absensi 6 sesi, jadwal lokasi, dan rekap harian.",
     href: "/attendance",
     icon: Calendar,
     status: "Siap",
@@ -140,7 +140,7 @@ const modules: ModuleCard[] = [
     accent: "border-l-violet-500",
     iconClass: "bg-violet-50 text-violet-700",
     stats: [
-      { label: "Sesi", value: "4" },
+      { label: "Sesi", value: "6" },
       { label: "Aturan", value: "3" },
     ],
   },
@@ -165,10 +165,12 @@ const agenda = [
   { time: "07:00", title: "Window absen datang dibuka", tag: "CHECK_IN" },
   { time: "07:30", title: "Penyembelihan Sapi #1", tag: "Qurban" },
   { time: "11:30", title: "Window makan siang dibuka", tag: "LUNCH" },
+  { time: "13:00", title: "Window pembagian daging dibuka", tag: "MEAT_DISTRIBUTION" },
+  { time: "18:30", title: "Cek kelengkapan logistik ditutup", tag: "LOGISTICS" },
 ]
 
 const priorities = [
-  { title: "Cek sesi belum lengkap", detail: `${attendanceSummary.incomplete} panitia belum lengkap 4 sesi.`, icon: ShieldCheck },
+  { title: "Cek sesi belum lengkap", detail: `${attendanceSummary.incomplete} panitia belum lengkap 6 sesi.`, icon: ShieldCheck },
   { title: "Audit scan duplikat", detail: "Scanner menolak sesi yang sudah tercatat.", icon: PackageCheck },
   { title: "Publikasi dokumentasi", detail: "Draft distribusi perlu direview.", icon: CheckCircle2 },
 ]

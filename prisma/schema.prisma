@@ -12,12 +12,21 @@ enum SessionType {
   BREAKFAST
   LUNCH
   DINNER
+  MEAT_DISTRIBUTION
+  LOGISTICS_COMPLETENESS
 }
 
 enum ScanMethod {
   QR
   RFID
   MANUAL
+}
+
+enum QurbanLogisticsStatus {
+  AVAILABLE
+  LIMITED
+  UNAVAILABLE
+  MAINTENANCE
 }
 
 model Department {
@@ -47,19 +56,23 @@ model Location {
 }
 
 model WorkSchedule {
-  id              Int      @id @default(autoincrement())
-  location        Location @relation(fields: [locationId], references: [id])
-  locationId      Int      @unique
-  checkInStart    String   @default("07:00")
-  checkInDeadline String   @default("09:00")
-  breakfastStart  String   @default("06:30")
-  breakfastEnd    String   @default("08:30")
-  lunchStart      String   @default("11:30")
-  lunchEnd        String   @default("13:00")
-  dinnerStart     String   @default("16:30")
-  dinnerEnd       String   @default("18:00")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                    Int      @id @default(autoincrement())
+  location              Location @relation(fields: [locationId], references: [id])
+  locationId            Int      @unique
+  checkInStart          String   @default("07:00")
+  checkInDeadline       String   @default("09:00")
+  breakfastStart        String   @default("06:30")
+  breakfastEnd          String   @default("08:30")
+  lunchStart            String   @default("11:30")
+  lunchEnd              String   @default("13:00")
+  dinnerStart           String   @default("16:30")
+  dinnerEnd             String   @default("18:00")
+  meatDistributionStart String   @default("13:00")
+  meatDistributionEnd   String   @default("16:00")
+  logisticsStart        String   @default("06:00")
+  logisticsEnd          String   @default("18:30")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@map("work_schedules")
 }
@@ -109,21 +122,43 @@ model AttendanceSession {
 }
 
 model DailySummary {
-  id            Int      @id @default(autoincrement())
-  employee      Employee @relation(fields: [employeeId], references: [id])
-  employeeId    Int
-  location      Location @relation(fields: [locationId], references: [id])
-  locationId    Int
-  date          DateTime @db.Date
-  checkInDone   Boolean  @default(false)
-  breakfastDone Boolean  @default(false)
-  lunchDone     Boolean  @default(false)
-  dinnerDone    Boolean  @default(false)
-  allComplete   Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                   Int      @id @default(autoincrement())
+  employee             Employee @relation(fields: [employeeId], references: [id])
+  employeeId           Int
+  location             Location @relation(fields: [locationId], references: [id])
+  locationId           Int
+  date                 DateTime @db.Date
+  checkInDone          Boolean  @default(false)
+  breakfastDone        Boolean  @default(false)
+  lunchDone            Boolean  @default(false)
+  dinnerDone           Boolean  @default(false)
+  meatDistributionDone Boolean  @default(false)
+  logisticsDone        Boolean  @default(false)
+  allComplete          Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@unique([employeeId, date])
   @@index([date, locationId])
   @@map("daily_summaries")
+}
+
+model QurbanLogisticsItem {
+  id              Int                   @id @default(autoincrement())
+  name            String
+  category        String?
+  ownerName       String
+  ownerContact    String?
+  quantity        Int                   @default(0)
+  available       Int                   @default(0)
+  unit            String                @default("unit")
+  status          QurbanLogisticsStatus @default(AVAILABLE)
+  storageLocation String?
+  notes           String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([status])
+  @@index([ownerName])
+  @@map("qurban_logistics_items")
 }

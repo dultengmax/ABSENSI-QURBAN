@@ -179,7 +179,7 @@ export default function QRGenerator() {
         <div className="page-header">
           <div>
             <h1 className="page-title">Generator QR Karyawan</h1>
-            <p className="page-subtitle">Buat QR dari field `Employee.qrCode` untuk alur absensi 4 sesi.</p>
+            <p className="page-subtitle">Buat QR dari field `Employee.qrCode` untuk alur absensi 6 sesi.</p>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-export type SessionType = "CHECK_IN" | "BREAKFAST" | "LUNCH" | "DINNER"
+export type SessionType = "CHECK_IN" | "BREAKFAST" | "LUNCH" | "DINNER" | "MEAT_DISTRIBUTION" | "LOGISTICS_COMPLETENESS"
 export type ScanMethod = "QR" | "RFID" | "MANUAL"
 
 export type WorkSchedule = {
@@ -10,6 +10,10 @@ export type WorkSchedule = {
   lunchEnd: string
   dinnerStart: string
   dinnerEnd: string
+  meatDistributionStart: string
+  meatDistributionEnd: string
+  logisticsStart: string
+  logisticsEnd: string
 }
 
 export type Department = {
@@ -94,7 +98,14 @@ export type ScanResult =
 
 export const demoAttendanceDate = "2026-05-22"
 
-export const sessionOrder: SessionType[] = ["CHECK_IN", "BREAKFAST", "LUNCH", "DINNER"]
+export const sessionOrder: SessionType[] = [
+  "CHECK_IN",
+  "BREAKFAST",
+  "LUNCH",
+  "DINNER",
+  "MEAT_DISTRIBUTION",
+  "LOGISTICS_COMPLETENESS",
+]
 
 export const sessionMeta: Record<
   SessionType,
@@ -129,6 +140,18 @@ export const sessionMeta: Record<
     apiValue: "DINNER",
     description: "Sesi konsumsi sore setelah absen datang.",
   },
+  MEAT_DISTRIBUTION: {
+    label: "Pembagian Daging",
+    shortLabel: "Daging",
+    apiValue: "MEAT_DISTRIBUTION",
+    description: "Validasi panitia saat sesi pembagian daging qurban.",
+  },
+  LOGISTICS_COMPLETENESS: {
+    label: "Kelengkapan Logistik",
+    shortLabel: "Logistik",
+    apiValue: "LOGISTICS_COMPLETENESS",
+    description: "Validasi kesiapan dan kelengkapan logistik operasional.",
+  },
 }
 
 export const demoScanTimes: Record<SessionType, string> = {
@@ -136,6 +159,8 @@ export const demoScanTimes: Record<SessionType, string> = {
   BREAKFAST: "07:50",
   LUNCH: "12:10",
   DINNER: "17:15",
+  MEAT_DISTRIBUTION: "14:00",
+  LOGISTICS_COMPLETENESS: "06:30",
 }
 
 export const defaultWorkSchedule: WorkSchedule = {
@@ -147,6 +172,10 @@ export const defaultWorkSchedule: WorkSchedule = {
   lunchEnd: "13:00",
   dinnerStart: "16:30",
   dinnerEnd: "18:00",
+  meatDistributionStart: "13:00",
+  meatDistributionEnd: "16:00",
+  logisticsStart: "06:00",
+  logisticsEnd: "18:30",
 }
 
 export const departments: Department[] = [
@@ -186,6 +215,10 @@ export const locations: Location[] = [
       lunchEnd: "13:00",
       dinnerStart: "16:30",
       dinnerEnd: "18:00",
+      meatDistributionStart: "13:00",
+      meatDistributionEnd: "16:00",
+      logisticsStart: "06:00",
+      logisticsEnd: "18:30",
     },
   },
   {
@@ -202,6 +235,10 @@ export const locations: Location[] = [
       lunchEnd: "12:45",
       dinnerStart: "16:00",
       dinnerEnd: "17:45",
+      meatDistributionStart: "12:30",
+      meatDistributionEnd: "16:30",
+      logisticsStart: "05:45",
+      logisticsEnd: "18:15",
     },
   },
 ]
@@ -262,6 +299,10 @@ export function getSessionWindow(location: Location, sessionType: SessionType) {
       return { start: schedule.lunchStart, end: schedule.lunchEnd }
     case "DINNER":
       return { start: schedule.dinnerStart, end: schedule.dinnerEnd }
+    case "MEAT_DISTRIBUTION":
+      return { start: schedule.meatDistributionStart, end: schedule.meatDistributionEnd }
+    case "LOGISTICS_COMPLETENESS":
+      return { start: schedule.logisticsStart, end: schedule.logisticsEnd }
   }
 }
 
@@ -353,7 +394,7 @@ export function scanAttendance(
       return {
         success: false,
         code: "NOT_CHECKED_IN",
-        message: "Karyawan harus absen datang terlebih dahulu sebelum sesi makan.",
+        message: "Karyawan harus absen datang terlebih dahulu sebelum sesi lanjutan.",
       }
     }
   }
@@ -474,6 +515,8 @@ export function summarizeDailyRows(rows: DailyAttendanceRow[]) {
     breakfast: rows.filter((row) => Boolean(row.sessions.BREAKFAST)).length,
     lunch: rows.filter((row) => Boolean(row.sessions.LUNCH)).length,
     dinner: rows.filter((row) => Boolean(row.sessions.DINNER)).length,
+    meatDistribution: rows.filter((row) => Boolean(row.sessions.MEAT_DISTRIBUTION)).length,
+    logistics: rows.filter((row) => Boolean(row.sessions.LOGISTICS_COMPLETENESS)).length,
     complete: rows.filter((row) => row.allComplete).length,
     incomplete: rows.filter((row) => !row.allComplete).length,
   }

@@ -121,19 +121,36 @@ export async function deleteDailySummaryAction(input: FormData | Record<string, 
   }
 }
 
-function normalizeDailySummary<T extends { checkInDone?: boolean; breakfastDone?: boolean; lunchDone?: boolean; dinnerDone?: boolean; allComplete?: boolean }>(
-  data: T,
-) {
+function normalizeDailySummary<
+  T extends {
+    checkInDone?: boolean
+    breakfastDone?: boolean
+    lunchDone?: boolean
+    dinnerDone?: boolean
+    meatDistributionDone?: boolean
+    logisticsDone?: boolean
+    allComplete?: boolean
+  },
+>(data: T) {
   const allSessionFlagsPresent =
     data.checkInDone !== undefined &&
     data.breakfastDone !== undefined &&
     data.lunchDone !== undefined &&
-    data.dinnerDone !== undefined
+    data.dinnerDone !== undefined &&
+    data.meatDistributionDone !== undefined &&
+    data.logisticsDone !== undefined
 
   if (!allSessionFlagsPresent || data.allComplete !== undefined) return data
 
   return {
     ...data,
-    allComplete: Boolean(data.checkInDone && data.breakfastDone && data.lunchDone && data.dinnerDone),
+    allComplete: Boolean(
+      data.checkInDone &&
+        data.breakfastDone &&
+        data.lunchDone &&
+        data.dinnerDone &&
+        data.meatDistributionDone &&
+        data.logisticsDone,
+    ),
   }
 }
