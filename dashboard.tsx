@@ -904,10 +904,10 @@ export default function AttendanceDashboard() {
           </CardHeader>
           <CardContent>
             <div className="toolbar-grid">
-              <div className="grid gap-2">
+              {/* <div className="grid gap-2">
                 <Label htmlFor="date">Tanggal</Label>
                 <Input id="date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
-              </div>
+              </div> */}
               <div className="grid gap-2">
                 <Label>Lokasi</Label>
                 <Select value={selectedLocation} onValueChange={setSelectedLocation}>
