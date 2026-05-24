@@ -166,4 +166,89 @@
   .empty-panel {
     @apply rounded-lg border border-dashed border-border bg-muted/40 p-6 text-center text-sm text-muted-foreground;
   }
+
+  .scanner-ready-panel {
+    @apply flex min-h-[340px] flex-col items-center justify-center gap-5 rounded-lg border border-dashed border-primary/30 bg-card p-6 text-center shadow-sm;
+    background-image:
+      radial-gradient(circle at 50% 0%, hsl(var(--primary) / 0.12), transparent 34%),
+      linear-gradient(180deg, hsl(var(--card)), hsl(var(--muted) / 0.42));
+  }
+
+  .scanner-ready-visual {
+    @apply grid h-36 w-36 place-items-center rounded-full border border-primary/20 bg-primary/5;
+  }
+
+  .scanner-ready-frame {
+    @apply grid h-24 w-24 place-items-center rounded-lg border-2 border-primary/40 bg-background shadow-sm;
+    box-shadow: inset 0 0 0 8px hsl(var(--primary) / 0.06);
+  }
+
+  .scanner-camera-shell {
+    @apply overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-sm;
+  }
+
+  .scanner-camera-header {
+    @apply flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3;
+  }
+
+  .scanner-viewport {
+    @apply relative min-h-[340px] bg-slate-950 p-3 sm:min-h-[420px];
+  }
+
+  .scanner-reader {
+    @apply min-h-[316px] overflow-hidden rounded-md border-0 bg-slate-950 text-white sm:min-h-[396px];
+  }
+
+  .scanner-frame-overlay {
+    @apply pointer-events-none absolute left-1/2 top-1/2 hidden h-56 w-56 -translate-x-1/2 -translate-y-1/2 sm:block;
+  }
+
+  .scanner-frame-overlay span {
+    @apply absolute h-12 w-12 border-4 border-emerald-400;
+  }
+
+  .scanner-frame-overlay span:nth-child(1) {
+    @apply left-0 top-0 rounded-tl-lg border-b-0 border-r-0;
+  }
+
+  .scanner-frame-overlay span:nth-child(2) {
+    @apply right-0 top-0 rounded-tr-lg border-b-0 border-l-0;
+  }
+
+  .scanner-frame-overlay span:nth-child(3) {
+    @apply bottom-0 left-0 rounded-bl-lg border-r-0 border-t-0;
+  }
+
+  .scanner-frame-overlay span:nth-child(4) {
+    @apply bottom-0 right-0 rounded-br-lg border-l-0 border-t-0;
+  }
+
+  .scanner-reader #qr-reader__scan_region {
+    @apply flex min-h-[260px] items-center justify-center;
+  }
+
+  .scanner-reader video {
+    @apply rounded-md;
+  }
+
+  .scanner-reader img {
+    @apply mx-auto opacity-70;
+  }
+
+  .scanner-reader button {
+    @apply rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-950 shadow-sm transition hover:bg-slate-100;
+  }
+
+  .scanner-reader select {
+    @apply rounded-md border border-white/20 bg-slate-900 px-3 py-2 text-sm text-white;
+  }
+
+  .scanner-reader a {
+    @apply text-emerald-300 underline-offset-4 hover:underline;
+  }
+
+  .scanner-reader > div,
+  .scanner-reader div {
+    @apply border-0 text-sm text-white;
+  }
 }

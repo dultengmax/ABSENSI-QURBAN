@@ -9,8 +9,22 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, Calendar, Camera, CheckCircle2, Clock, MapPin, QrCode, RefreshCw, User, XCircle } from "lucide-react"
-import { Html5QrcodeScanner } from "html5-qrcode"
+import {
+  AlertCircle,
+  Calendar,
+  Camera,
+  CheckCircle2,
+  Clock,
+  Keyboard,
+  MapPin,
+  QrCode,
+  RefreshCw,
+  ScanLine,
+  ShieldCheck,
+  User,
+  XCircle,
+} from "lucide-react"
+import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from "html5-qrcode"
 
 import {
   type AttendanceSession,
@@ -191,7 +205,25 @@ export default function QRScanner() {
     if (isScanning && !scannerInitialized && scannerContainerRef.current) {
       try {
         scannerContainerRef.current.innerHTML = ""
-        scannerRef.current = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: { width: 250, height: 250 } }, false)
+        scannerRef.current = new Html5QrcodeScanner(
+          "qr-reader",
+          {
+            fps: 12,
+            qrbox: { width: 300, height: 220 },
+            formatsToSupport: [
+              Html5QrcodeSupportedFormats.QR_CODE,
+              Html5QrcodeSupportedFormats.CODE_128,
+              Html5QrcodeSupportedFormats.CODE_39,
+              Html5QrcodeSupportedFormats.CODE_93,
+              Html5QrcodeSupportedFormats.EAN_13,
+              Html5QrcodeSupportedFormats.EAN_8,
+              Html5QrcodeSupportedFormats.UPC_A,
+              Html5QrcodeSupportedFormats.UPC_E,
+              Html5QrcodeSupportedFormats.ITF,
+            ],
+          },
+          false,
+        )
         scannerRef.current.render(onScanSuccess, onScanFailure)
         setScannerInitialized(true)
       } catch (err) {
@@ -402,8 +434,11 @@ export default function QRScanner() {
             {/* <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
               Window {sessionMeta[selectedSessionType].label}: {selectedWindow.start} - {selectedWindow.end} di {selectedLocation.name}
             </div> */}
-            <div className="grid gap-2">
-              <Label htmlFor="manual-qr">Input QR Manual</Label>
+            {/* <div className="grid gap-2">
+              <Label htmlFor="manual-qr" className="flex items-center gap-2">
+                <Keyboard className="h-4 w-4 text-muted-foreground" />
+                Input QR Manual
+              </Label>
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                 <Input
                   id="manual-qr"
@@ -420,7 +455,7 @@ export default function QRScanner() {
                   {isProcessingScan ? "Menyimpan..." : "Proses"}
                 </Button>
               </div>
-            </div>
+            </div> */}
           </CardContent>
         </Card>
 
@@ -434,29 +469,73 @@ export default function QRScanner() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <QrCode className="h-5 w-5" />
-                  Kamera QR
+                  <ScanLine className="h-5 w-5" />
+                  Scan Barcode / QR
                 </CardTitle>
-                <CardDescription>Gunakan kamera atau input manual untuk mencatat scan langsung ke database.</CardDescription>
+                <CardDescription>Arahkan kode ke area bidik. Hasil scan akan langsung dicatat ke database.</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-5">
+                <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm sm:grid-cols-3">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-primary" />
+                    <span className="min-w-0 truncate">{sessionMeta[selectedSessionType].label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <span className="min-w-0 truncate">{selectedLocation.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span>{scanTime}</span>
+                  </div>
+                </div>
+
                 {!isScanning && !scanResult && (
-                  <div className="empty-panel flex flex-col items-center justify-center">
-                    <Camera className="h-16 w-16 text-gray-400 mb-4" />
-                    <p className="mb-4 text-gray-600">Klik tombol untuk mulai scan QR karyawan.</p>
-                    <Button onClick={startScanner} disabled={isProcessingScan || !selectedLocationId}>
-                      <Camera className="h-4 w-4 mr-2" />
-                      Mulai Scan
+                  <div className="scanner-ready-panel">
+                    <div className="scanner-ready-visual" aria-hidden="true">
+                      <div className="scanner-ready-frame">
+                        <ScanLine className="h-12 w-12 text-primary" />
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-center">
+                      <h3 className="text-lg font-semibold text-foreground">Siap memindai kode absensi</h3>
+                      <p className="mx-auto max-w-md text-sm leading-6 text-muted-foreground">
+                        Pastikan kamera aktif, kode terlihat penuh, dan jarak perangkat stabil agar terbaca lebih cepat.
+                      </p>
+                    </div>
+                    <Button size="lg" onClick={startScanner} disabled={isProcessingScan || !selectedLocationId}>
+                      <Camera className="mr-2 h-4 w-4" />
+                      Buka Kamera
                     </Button>
                   </div>
                 )}
 
                 {isScanning && (
                   <div className="space-y-4">
-                    <div ref={scannerContainerRef} id="qr-reader" className="w-full overflow-hidden rounded-lg border border-border bg-card p-2"></div>
-                    <div className="flex justify-center">
-                      <Button variant="outline" onClick={stopScanner}>
-                        Batal
+                    <div className="scanner-camera-shell">
+                      <div className="scanner-camera-header">
+                        <div>
+                          <p className="text-sm font-semibold text-white">Kamera aktif</p>
+                          <p className="text-xs text-white/70">Posisikan barcode atau QR di dalam bingkai.</p>
+                        </div>
+                        <Badge className="bg-emerald-500 text-white hover:bg-emerald-500">Live</Badge>
+                      </div>
+                      <div className="scanner-viewport">
+                        <div ref={scannerContainerRef} id="qr-reader" className="scanner-reader"></div>
+                        <div className="scanner-frame-overlay" aria-hidden="true">
+                          <span />
+                          <span />
+                          <span />
+                          <span />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+                      <p className="text-sm text-muted-foreground">
+                        Tips: naikkan kecerahan layar kode, hindari pantulan cahaya, lalu tahan 1-2 detik.
+                      </p>
+                      <Button variant="outline" onClick={stopScanner} className="sm:w-auto">
+                        Tutup Kamera
                       </Button>
                     </div>
                   </div>
