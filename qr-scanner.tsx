@@ -357,7 +357,7 @@ export default function QRScanner() {
         <Card>
           <CardHeader>
             <CardTitle>Kontrol Sesi Scan</CardTitle>
-            <CardDescription>Window dan lokasi mengikuti jadwal kerja dari dokumen sistem absensi.</CardDescription>
+            <CardDescription hidden>Window dan lokasi mengikuti jadwal kerja dari dokumen sistem absensi.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -395,14 +395,14 @@ export default function QRScanner() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
+              {/* <div className="grid gap-2">
                 <Label htmlFor="scan-time">Jam Scan</Label>
                 <Input id="scan-time" type="time" value={scanTime} onChange={(event) => setScanTime(event.target.value)} />
-              </div>
+              </div> */}
             </div>
-            <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+            {/* <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
               Window {sessionMeta[selectedSessionType].label}: {selectedWindow.start} - {selectedWindow.end} di {selectedLocation.name}
-            </div>
+            </div> */}
             <div className="grid gap-2">
               <Label htmlFor="manual-qr">Input QR Manual</Label>
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
