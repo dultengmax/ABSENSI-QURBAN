@@ -1,6 +1,6 @@
 "use client"
 
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react"
+import { useActionState, useEffect, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
+import { QRCodeCanvas } from "qrcode.react"
 import {
   MilkIcon as Cow,
   Scissors,
@@ -32,7 +33,11 @@ import {
   Clock,
   Scale,
   AlertCircle,
+  Printer,
+  QrCode,
 } from "lucide-react"
+
+import { createQurbanLogisticsFormAction, listQurbanLogisticsAction } from "@/lib/actions/qurban-logistics"
 
 type LogisticsStatus = "AVAILABLE" | "LIMITED" | "UNAVAILABLE" | "MAINTENANCE"
 
@@ -42,10 +47,13 @@ type QurbanLogisticsItem = {
   category?: string | null
   ownerName: string
   ownerContact?: string | null
+  qrCode: string
   quantity: number
   available: number
   unit: string
   status: LogisticsStatus
+  isChecked: boolean
+  checkedAt?: string | Date | null
   storageLocation?: string | null
   notes?: string | null
 }
@@ -111,10 +119,13 @@ const fallbackLogisticsEquipment: QurbanLogisticsItem[] = [
     category: "Penyembelihan",
     ownerName: "Tim Penyembelih",
     ownerContact: "Ust. Abdul",
+    qrCode: "QLOG-PISEMBELIH-001",
     quantity: 5,
     available: 3,
     unit: "buah",
     status: "LIMITED",
+    isChecked: false,
+    checkedAt: null,
     storageLocation: "Meja alat utama",
     notes: "Dua pisau sedang diasah ulang.",
   },
@@ -124,10 +135,13 @@ const fallbackLogisticsEquipment: QurbanLogisticsItem[] = [
     category: "Penanganan Hewan",
     ownerName: "Tim Logistik",
     ownerContact: "Bpk. Dani",
+    qrCode: "QLOG-TALI-002",
     quantity: 10,
     available: 8,
     unit: "ikat",
     status: "AVAILABLE",
+    isChecked: false,
+    checkedAt: null,
     storageLocation: "Gudang logistik",
     notes: "Cadangan untuk area sapi dan domba.",
   },
@@ -137,10 +151,13 @@ const fallbackLogisticsEquipment: QurbanLogisticsItem[] = [
     category: "Area Kerja",
     ownerName: "DKM Masjid Al-Ikhlas",
     ownerContact: "Sekretariat DKM",
+    qrCode: "QLOG-TERPAL-003",
     quantity: 4,
     available: 2,
     unit: "lembar",
     status: "LIMITED",
+    isChecked: false,
+    checkedAt: null,
     storageLocation: "Sisi area recah",
     notes: "Dua terpal dipakai di area timbang.",
   },
@@ -150,10 +167,13 @@ const fallbackLogisticsEquipment: QurbanLogisticsItem[] = [
     category: "Kebersihan",
     ownerName: "Tim Kebersihan",
     ownerContact: "Bpk. Joko",
+    qrCode: "QLOG-EMBER-004",
     quantity: 8,
     available: 8,
     unit: "buah",
     status: "AVAILABLE",
+    isChecked: false,
+    checkedAt: null,
     storageLocation: "Pos kebersihan",
     notes: "Siap pakai untuk alur pembersihan.",
   },
@@ -163,10 +183,13 @@ const fallbackLogisticsEquipment: QurbanLogisticsItem[] = [
     category: "Packing",
     ownerName: "Tim Timbang dan Packing",
     ownerContact: "Bpk. Rahmat",
+    qrCode: "QLOG-TIMBANGAN-005",
     quantity: 2,
     available: 0,
     unit: "unit",
     status: "UNAVAILABLE",
+    isChecked: false,
+    checkedAt: null,
     storageLocation: "Area packing",
     notes: "Menunggu baterai cadangan.",
   },
@@ -265,7 +288,8 @@ export default function QurbanLogistics() {
   const [isAddEquipmentDialogOpen, setIsAddEquipmentDialogOpen] = useState(false)
   const [logisticsItems, setLogisticsItems] = useState<QurbanLogisticsItem[]>(fallbackLogisticsEquipment)
   const [logisticsError, setLogisticsError] = useState<string | null>(null)
-  const [isSavingEquipment, setIsSavingEquipment] = useState(false)
+  const [createEquipmentState, createEquipmentAction, isSavingEquipment] = useActionState(createQurbanLogisticsFormAction, null)
+  const [selectedQrItem, setSelectedQrItem] = useState<QurbanLogisticsItem | null>(null)
   const equipmentFormRef = useRef<HTMLFormElement>(null)
 
   // Filter animals based on search and status
@@ -313,61 +337,32 @@ export default function QurbanLogistics() {
 
   useEffect(() => {
     async function loadLogistics() {
-      try {
-        const response = await fetch("/api/qurban/logistics", { cache: "no-store" })
-        const payload = (await response.json()) as {
-          success?: boolean
-          data?: QurbanLogisticsItem[]
-          message?: string
-        }
-
-        if (!response.ok || !payload.success || !Array.isArray(payload.data)) {
-          throw new Error(payload.message ?? "Gagal memuat data logistik.")
-        }
-
-        setLogisticsItems(payload.data)
+      const result = await listQurbanLogisticsAction()
+      if (result.ok) {
+        setLogisticsItems(result.data)
         setLogisticsError(null)
-      } catch (error) {
-        setLogisticsError(error instanceof Error ? error.message : "Gagal memuat data logistik.")
+        return
       }
+
+      setLogisticsError(result.error.message)
     }
 
     void loadLogistics()
   }, [])
 
-  const handleCreateEquipment = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setIsSavingEquipment(true)
-    setLogisticsError(null)
+  useEffect(() => {
+    if (!createEquipmentState) return
 
-    const formData = new FormData(event.currentTarget)
-    const body = Object.fromEntries(formData.entries())
-
-    try {
-      const response = await fetch("/api/qurban/logistics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-      const payload = (await response.json()) as {
-        success?: boolean
-        data?: QurbanLogisticsItem
-        message?: string
-      }
-
-      if (!response.ok || !payload.success || !payload.data) {
-        throw new Error(payload.message ?? "Gagal menyimpan data logistik.")
-      }
-
-      setLogisticsItems((current) => [payload.data!, ...current])
+    if (createEquipmentState.ok) {
+      setLogisticsItems((current) => [createEquipmentState.data, ...current])
       equipmentFormRef.current?.reset()
       setIsAddEquipmentDialogOpen(false)
-    } catch (error) {
-      setLogisticsError(error instanceof Error ? error.message : "Gagal menyimpan data logistik.")
-    } finally {
-      setIsSavingEquipment(false)
+      setLogisticsError(null)
+      return
     }
-  }
+
+    setLogisticsError(createEquipmentState.error.message)
+  }, [createEquipmentState])
 
   // Status badge renderer
   const getStatusBadge = (status: string) => {
@@ -421,6 +416,61 @@ export default function QurbanLogistics() {
         return <Badge variant="secondary">Belum Dimulai</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
+    }
+  }
+
+  const selectedQrPayload = selectedQrItem ? getLogisticsQrPayload(selectedQrItem) : ""
+
+  const handleDownloadLogisticsQr = () => {
+    if (!selectedQrItem) return
+
+    const canvas = document.getElementById("qurban-logistics-qr-canvas")
+    if (canvas instanceof HTMLCanvasElement) {
+      const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
+      const downloadLink = document.createElement("a")
+      downloadLink.href = pngUrl
+      downloadLink.download = `qr-logistik-${selectedQrItem.name.toLowerCase().replaceAll(" ", "-")}.png`
+      document.body.appendChild(downloadLink)
+      downloadLink.click()
+      document.body.removeChild(downloadLink)
+    }
+  }
+
+  const handlePrintLogisticsQr = () => {
+    if (!selectedQrItem) return
+
+    const qrCanvas = document.getElementById("qurban-logistics-qr-canvas")
+    const qrImage = qrCanvas instanceof HTMLCanvasElement ? qrCanvas.toDataURL() : ""
+    const printWindow = window.open("", "_blank")
+
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>QR Logistik ${selectedQrItem.name}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 0; padding: 24px; }
+              .label { width: 320px; border: 1px solid #d4d4d8; padding: 18px; text-align: center; }
+              .title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+              .meta { font-size: 13px; color: #52525b; margin-bottom: 4px; }
+              .qr { margin: 14px auto 8px; width: 180px; height: 180px; }
+              .code { font-size: 11px; word-break: break-all; color: #3f3f46; }
+            </style>
+          </head>
+          <body>
+            <div class="label">
+              <div class="title">${selectedQrItem.name}</div>
+              <div class="meta">Punya: ${selectedQrItem.ownerName}</div>
+              <div class="meta">${selectedQrItem.category ?? "Logistik Qurban"} - ${selectedQrItem.storageLocation ?? "Lokasi belum diisi"}</div>
+              <div class="qr"><img src="${qrImage}" width="180" height="180" /></div>
+              <div class="code">${selectedQrPayload}</div>
+            </div>
+          </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.print()
     }
   }
 
@@ -722,10 +772,13 @@ export default function QurbanLogistics() {
                       <DialogTitle>Tambah Peralatan</DialogTitle>
                       <DialogDescription>Masukkan data peralatan baru</DialogDescription>
                     </DialogHeader>
-                    <form ref={equipmentFormRef} onSubmit={handleCreateEquipment} className="grid gap-4 py-4">
+                    <form ref={equipmentFormRef} action={createEquipmentAction} className="grid gap-4 py-4">
                       <div className="grid gap-2">
                         <Label htmlFor="equipment-name">Nama Peralatan</Label>
                         <Input id="equipment-name" name="name" placeholder="Nama peralatan" required />
+                        {createEquipmentState?.ok === false && createEquipmentState.error.fieldErrors?.name?.[0] && (
+                          <p className="text-xs text-red-600">{createEquipmentState.error.fieldErrors.name[0]}</p>
+                        )}
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
@@ -737,10 +790,17 @@ export default function QurbanLogistics() {
                           <Input id="equipment-unit" name="unit" placeholder="unit, buah, lembar" defaultValue="unit" />
                         </div>
                       </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="equipment-qr-code">Kode QR</Label>
+                        <Input id="equipment-qr-code" name="qrCode" placeholder="Kosongkan untuk dibuat otomatis" autoComplete="off" />
+                      </div>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                           <Label htmlFor="equipment-owner">Punya Siapa</Label>
                           <Input id="equipment-owner" name="ownerName" placeholder="Tim / nama pemilik" required />
+                          {createEquipmentState?.ok === false && createEquipmentState.error.fieldErrors?.ownerName?.[0] && (
+                            <p className="text-xs text-red-600">{createEquipmentState.error.fieldErrors.ownerName[0]}</p>
+                          )}
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="equipment-owner-contact">Kontak Penanggung Jawab</Label>
@@ -751,10 +811,16 @@ export default function QurbanLogistics() {
                         <div className="grid gap-2">
                           <Label htmlFor="equipment-quantity">Total Jumlah</Label>
                           <Input id="equipment-quantity" name="quantity" type="number" min="0" placeholder="0" required />
+                          {createEquipmentState?.ok === false && createEquipmentState.error.fieldErrors?.quantity?.[0] && (
+                            <p className="text-xs text-red-600">{createEquipmentState.error.fieldErrors.quantity[0]}</p>
+                          )}
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="equipment-available">Jumlah Tersedia</Label>
                           <Input id="equipment-available" name="available" type="number" min="0" placeholder="0" required />
+                          {createEquipmentState?.ok === false && createEquipmentState.error.fieldErrors?.available?.[0] && (
+                            <p className="text-xs text-red-600">{createEquipmentState.error.fieldErrors.available[0]}</p>
+                          )}
                         </div>
                       </div>
                       <div className="grid gap-2">
@@ -814,6 +880,8 @@ export default function QurbanLogistics() {
                         <TableHead>Tersedia</TableHead>
                         <TableHead>Lokasi</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Cek Sesi</TableHead>
+                        <TableHead>QR</TableHead>
                         <TableHead>Aksi</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -837,15 +905,38 @@ export default function QurbanLogistics() {
                           <TableCell>{equipment.storageLocation ?? "-"}</TableCell>
                           <TableCell>{getStatusBadge(equipment.status)}</TableCell>
                           <TableCell>
-                            <Button variant="outline" size="sm">
-                              Update
-                            </Button>
+                            {equipment.isChecked ? (
+                              <div className="space-y-1">
+                                <Badge className="bg-emerald-600">Sudah dicek</Badge>
+                                {equipment.checkedAt && (
+                                  <p className="text-xs text-muted-foreground">{formatLogisticsCheckedAt(equipment.checkedAt)}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <Badge variant="secondary">Belum dicek</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="max-w-[180px] break-all text-xs">
+                              {equipment.qrCode}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                              <Button variant="outline" size="sm" onClick={() => setSelectedQrItem(equipment)}>
+                                <QrCode className="mr-1 h-3.5 w-3.5" />
+                                QR
+                              </Button>
+                              <Button variant="outline" size="sm">
+                                Update
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
                       {filteredLogisticsItems.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                          <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
                             Tidak ada data logistik sesuai filter.
                           </TableCell>
                         </TableRow>
@@ -1067,6 +1158,54 @@ export default function QurbanLogistics() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={Boolean(selectedQrItem)} onOpenChange={(open) => {
+          if (!open) setSelectedQrItem(null)
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>QR Logistik</DialogTitle>
+              <DialogDescription>Tempel QR ini pada barang agar nanti bisa discan untuk update status logistik.</DialogDescription>
+            </DialogHeader>
+
+            {selectedQrItem && (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="flex flex-col gap-1 text-center">
+                    <p className="text-lg font-semibold">{selectedQrItem.name}</p>
+                    <p className="text-sm text-muted-foreground">Punya: {selectedQrItem.ownerName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedQrItem.category ?? "Logistik Qurban"} - {selectedQrItem.storageLocation ?? "Lokasi belum diisi"}
+                    </p>
+                  </div>
+                  <div className="mt-4 flex justify-center">
+                    <QRCodeCanvas
+                      id="qurban-logistics-qr-canvas"
+                      value={selectedQrPayload}
+                      size={220}
+                      includeMargin
+                      level="H"
+                    />
+                  </div>
+                  <Badge variant="outline" className="mt-4 w-full justify-center break-all px-3 py-2 text-center">
+                    {selectedQrPayload}
+                  </Badge>
+                </div>
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={handlePrintLogisticsQr}>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print
+                  </Button>
+                  <Button type="button" onClick={handleDownloadLogisticsQr}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
@@ -1074,4 +1213,15 @@ export default function QurbanLogistics() {
 
 function normalizeLogisticsStatus(value: string): LogisticsStatus {
   return value.trim().toUpperCase().replaceAll("-", "_") as LogisticsStatus
+}
+
+function getLogisticsQrPayload(item: QurbanLogisticsItem) {
+  return `QURBAN_LOGISTICS:${item.qrCode}`
+}
+
+function formatLogisticsCheckedAt(value: string | Date) {
+  return new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value))
 }

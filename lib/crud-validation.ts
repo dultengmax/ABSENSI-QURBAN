@@ -1,4 +1,4 @@
-import { ScanMethod, SessionType } from "@prisma/client"
+import { QurbanLogisticsStatus, ScanMethod, SessionType } from "@prisma/client"
 import { z } from "zod"
 
 import { cleanOptionalString, coerceOptionalBoolean } from "@/lib/server-action-utils"
@@ -139,3 +139,51 @@ export const dailySummaryUpdateSchema = idSchema.extend({
   logisticsDone: optionalBoolean,
   allComplete: optionalBoolean,
 })
+
+export const qurbanLogisticsCreateSchema = z
+  .object({
+    name: z.string().trim().min(1, "Nama peralatan wajib diisi."),
+    category: optionalString,
+    ownerName: z.string().trim().min(1, "Data punya siapa wajib diisi."),
+    ownerContact: optionalString,
+    qrCode: optionalString,
+    quantity: z.coerce.number().int().min(0, "Total jumlah minimal 0."),
+    available: z.coerce.number().int().min(0, "Jumlah tersedia minimal 0."),
+    unit: z.string().trim().min(1, "Satuan wajib diisi.").default("unit"),
+    status: z.nativeEnum(QurbanLogisticsStatus).optional(),
+    storageLocation: optionalString,
+    notes: optionalString,
+  })
+  .superRefine((data, context) => {
+    if (data.available > data.quantity) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Jumlah tersedia tidak boleh melebihi total.",
+        path: ["available"],
+      })
+    }
+  })
+
+export const qurbanLogisticsUpdateSchema = idSchema
+  .extend({
+    name: z.string().trim().min(1).optional(),
+    category: optionalString,
+    ownerName: z.string().trim().min(1).optional(),
+    ownerContact: optionalString,
+    qrCode: optionalString,
+    quantity: z.coerce.number().int().min(0).optional(),
+    available: z.coerce.number().int().min(0).optional(),
+    unit: z.string().trim().min(1).optional(),
+    status: z.nativeEnum(QurbanLogisticsStatus).optional(),
+    storageLocation: optionalString,
+    notes: optionalString,
+  })
+  .superRefine((data, context) => {
+    if (data.quantity !== undefined && data.available !== undefined && data.available > data.quantity) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Jumlah tersedia tidak boleh melebihi total.",
+        path: ["available"],
+      })
+    }
+  })

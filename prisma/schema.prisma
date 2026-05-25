@@ -149,10 +149,13 @@ model QurbanLogisticsItem {
   category        String?
   ownerName       String
   ownerContact    String?
+  qrCode          String                @unique @default(uuid())
   quantity        Int                   @default(0)
   available       Int                   @default(0)
   unit            String                @default("unit")
   status          QurbanLogisticsStatus @default(AVAILABLE)
+  isChecked       Boolean               @default(false)
+  checkedAt       DateTime?
   storageLocation String?
   notes           String?
   createdAt       DateTime              @default(now())
@@ -160,5 +163,6 @@ model QurbanLogisticsItem {
 
   @@index([status])
   @@index([ownerName])
+  @@index([qrCode])
   @@map("qurban_logistics_items")
 }

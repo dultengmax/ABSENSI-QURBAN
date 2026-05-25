@@ -83,6 +83,7 @@ export function handleActionException(error: unknown): ActionResult<never> {
 export function revalidateOperationalPaths(revalidatePath: (path: string) => void) {
   revalidatePath("/")
   revalidatePath("/attendance")
+  revalidatePath("/qurban")
   revalidatePath("/qr-scanner")
   revalidatePath("/qr-generator")
 }

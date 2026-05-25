@@ -93,6 +93,24 @@ type ApiScanResponse =
       window?: { start: string; end: string }
     }
 
+type ApiLogisticsScanResponse =
+  | {
+      success: true
+      message: string
+      data: {
+        id: number
+        name: string
+        ownerName: string
+        qrCode: string
+        checkedAt?: string | null
+      }
+    }
+  | {
+      success: false
+      code: string
+      message: string
+    }
+
 type ScannerScanNotice =
   | {
       success: true
@@ -105,6 +123,8 @@ type ScannerScanNotice =
       message: string
       previousScan?: AttendanceSession
     }
+
+const LOGISTICS_QR_PREFIX = "QURBAN_LOGISTICS:"
 
 export default function QRScanner() {
   const [departmentList, setDepartmentList] = useState<Department[]>(initialDepartments)
@@ -280,6 +300,11 @@ export default function QRScanner() {
     setIsProcessingScan(true)
 
     try {
+      if (qrCode.startsWith(LOGISTICS_QR_PREFIX)) {
+        await processLogisticsPayload(qrCode, method)
+        return
+      }
+
       const response = await fetch("/api/attendance/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -336,6 +361,55 @@ export default function QRScanner() {
     } finally {
       setIsProcessingScan(false)
     }
+  }
+
+  const processLogisticsPayload = async (qrCode: string, method: "QR" | "MANUAL") => {
+    if (selectedSessionType !== "LOGISTICS_COMPLETENESS") {
+      const message = "QR logistik hanya bisa discan pada sesi Kelengkapan Logistik."
+      setScanNotice({
+        success: false,
+        code: "WRONG_SESSION",
+        message,
+      })
+      addRecentScan("Logistik ditolak", qrCode, selectedSessionType, false, message)
+      return
+    }
+
+    const response = await fetch("/api/qurban/logistics/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        qrCode,
+        sessionType: selectedSessionType,
+        scannedAt: combineDateAndTime(scanDate, scanTime),
+        scanMethod: method,
+      }),
+    })
+    const result = (await response.json()) as ApiLogisticsScanResponse
+
+    if (result.success) {
+      const syntheticSession = createLogisticsScanSession(
+        result.data.id,
+        qrCode,
+        scanDate,
+        combineDateAndTime(scanDate, scanTime),
+        method,
+      )
+      setScanNotice({
+        success: true,
+        message: result.message,
+        session: syntheticSession,
+      })
+      addRecentScan(result.data.name, result.data.ownerName, selectedSessionType, true, result.message)
+      return
+    }
+
+    setScanNotice({
+      success: false,
+      code: result.code,
+      message: result.message,
+    })
+    addRecentScan("Logistik gagal", qrCode, selectedSessionType, false, result.message)
   }
 
   const addRecentScan = (
@@ -700,4 +774,25 @@ function upsertEmployee(employeeList: Employee[], employee: Employee) {
   }
 
   return [...employeeList, employee]
+}
+
+function createLogisticsScanSession(
+  itemId: number,
+  qrCode: string,
+  scanDate: string,
+  scannedAt: string,
+  scanMethod: "QR" | "MANUAL",
+): AttendanceSession {
+  return {
+    id: `logistics-${Date.now()}-${itemId}`,
+    employeeId: itemId,
+    locationId: 0,
+    date: scanDate,
+    sessionType: "LOGISTICS_COMPLETENESS",
+    scannedAt,
+    scanMethod,
+    isLate: false,
+    lateMinutes: 0,
+    note: qrCode,
+  }
 }

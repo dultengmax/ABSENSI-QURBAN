@@ -63,6 +63,7 @@ function parseLogisticsBody(body: any) {
       status: status ?? deriveStatus(quantity, available),
       category: optionalString(body.category),
       ownerContact: optionalString(body.ownerContact),
+      qrCode: optionalString(body.qrCode),
       unit: optionalString(body.unit) ?? "unit",
       storageLocation: optionalString(body.storageLocation),
       notes: optionalString(body.notes),

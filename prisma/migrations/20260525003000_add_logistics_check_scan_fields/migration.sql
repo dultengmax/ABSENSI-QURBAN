@@ -1,0 +1,3 @@
+ALTER TABLE "qurban_logistics_items"
+ADD COLUMN IF NOT EXISTS "isChecked" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "checkedAt" TIMESTAMP(3);
