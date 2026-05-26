@@ -26,6 +26,65 @@ import {
   normalizeLocationRecord,
 } from "@/lib/attendance-system"
 
+const NAMETAG_BACKGROUND_URL = "/background.png"
+
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;")
+
+const sanitizeFileName = (value: string) => value.trim().replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "")
+
+const loadImage = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = reject
+    image.src = src
+  })
+
+const drawWrappedCenteredText = (
+  context: CanvasRenderingContext2D,
+  text: string,
+  centerX: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  maxLines = 2,
+) => {
+  const words = text.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let currentLine = ""
+
+  for (const word of words) {
+    const candidate = currentLine ? `${currentLine} ${word}` : word
+    if (context.measureText(candidate).width <= maxWidth || !currentLine) {
+      currentLine = candidate
+    } else {
+      lines.push(currentLine)
+      currentLine = word
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine)
+  }
+
+  const visibleLines = lines.slice(0, maxLines)
+  if (lines.length > maxLines) {
+    visibleLines[maxLines - 1] = `${visibleLines[maxLines - 1].replace(/\s+\S*$/, "")}...`
+  }
+
+  visibleLines.forEach((line, index) => {
+    context.fillText(line, centerX, y + index * lineHeight)
+  })
+
+  return y + visibleLines.length * lineHeight
+}
+
 export default function QRGenerator() {
   const [departmentList, setDepartmentList] = useState<Department[]>(initialDepartments)
   const [locationList, setLocationList] = useState<Location[]>(initialLocations)
@@ -121,16 +180,105 @@ export default function QRGenerator() {
     if (canvas instanceof HTMLCanvasElement) {
       const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
       const downloadLink = document.createElement("a")
+      const fileNik = sanitizeFileName(selectedEmployee?.nik || "custom") || "custom"
       downloadLink.href = pngUrl
-      downloadLink.download = `qrcode-${selectedEmployee?.nik || "custom"}.png`
+      downloadLink.download = `qrcode-${fileNik}.png`
       document.body.appendChild(downloadLink)
       downloadLink.click()
       document.body.removeChild(downloadLink)
     }
   }
 
+  const handleDownloadNametag = async () => {
+    if (!qrValue) {
+      return
+    }
+
+    const qrCanvas = document.getElementById("nametag-qr-canvas") ?? document.getElementById("qr-code-canvas")
+    if (!(qrCanvas instanceof HTMLCanvasElement)) {
+      return
+    }
+
+    const departmentName = selectedEmployee
+      ? getDepartment(selectedEmployee.departmentId, departmentList)?.name
+      : customDepartment || "Bagian"
+    const locationName = selectedEmployee ? getLocation(selectedEmployee.locationId, locationList)?.name : "Lokasi"
+    const employeeName = selectedEmployee?.name || customName || "Nama Karyawan"
+    const employeeNik = selectedEmployee?.nik || "CUSTOM"
+    const fileNik = sanitizeFileName(employeeNik) || "custom"
+    const background = await loadImage(NAMETAG_BACKGROUND_URL)
+
+    const canvas = document.createElement("canvas")
+    canvas.width = 591
+    canvas.height = 1004
+    const context = canvas.getContext("2d")
+    if (!context) {
+      return
+    }
+
+    context.drawImage(background, 0, 0, canvas.width, canvas.height)
+    context.textAlign = "center"
+    context.textBaseline = "top"
+
+    context.fillStyle = "#f4cf58"
+    context.font = "800 20px Trebuchet MS, Arial, sans-serif"
+    context.fillText("NAMETAG PANITIA", canvas.width / 2, 356)
+
+    context.fillStyle = "#ffffff"
+    context.font = "800 48px Georgia, Times New Roman, serif"
+    context.shadowColor = "rgba(0, 0, 0, 0.26)"
+    context.shadowBlur = 12
+    context.shadowOffsetY = 3
+    const afterNameY = drawWrappedCenteredText(context, employeeName.toUpperCase(), canvas.width / 2, 394, 462, 52, 2)
+    context.shadowColor = "transparent"
+    context.shadowBlur = 0
+    context.shadowOffsetY = 0
+
+    const ruleY = Math.max(afterNameY + 16, 500)
+    const gradient = context.createLinearGradient(236, ruleY, 355, ruleY)
+    gradient.addColorStop(0, "rgba(248, 215, 107, 0)")
+    gradient.addColorStop(0.5, "#f8d76b")
+    gradient.addColorStop(1, "rgba(248, 215, 107, 0)")
+    context.fillStyle = gradient
+    context.fillRect(236, ruleY, 119, 4)
+
+    context.fillStyle = "#f4f7ed"
+    context.font = "700 24px Trebuchet MS, Arial, sans-serif"
+    const afterDepartmentY = drawWrappedCenteredText(context, departmentName ?? "Bagian", canvas.width / 2, ruleY + 22, 462, 30, 2)
+
+    context.fillStyle = "rgba(255, 255, 255, 0.82)"
+    context.font = "700 17px Trebuchet MS, Arial, sans-serif"
+    context.fillText((locationName ?? "Lokasi").toUpperCase(), canvas.width / 2, afterDepartmentY + 6)
+
+    const qrX = 193
+    const qrY = 674
+    context.shadowColor = "rgba(0, 0, 0, 0.28)"
+    context.shadowBlur = 34
+    context.shadowOffsetY = 16
+    context.fillStyle = "rgba(255, 255, 255, 0.96)"
+    context.fillRect(qrX, qrY, 206, 206)
+    context.shadowColor = "transparent"
+    context.shadowBlur = 0
+    context.shadowOffsetY = 0
+    context.strokeStyle = "#dfb635"
+    context.lineWidth = 3
+    context.strokeRect(qrX + 1.5, qrY + 1.5, 203, 203)
+    context.drawImage(qrCanvas, qrX + 15, qrY + 15, 176, 176)
+
+    context.fillStyle = "#f3d05c"
+    context.font = "900 18px Trebuchet MS, Arial, sans-serif"
+    context.fillText(`NIK ${employeeNik}`, canvas.width / 2, 890)
+
+    const downloadLink = document.createElement("a")
+    downloadLink.href = canvas.toDataURL("image/png")
+    downloadLink.download = `nametag-${fileNik}.png`
+    document.body.appendChild(downloadLink)
+    downloadLink.click()
+    document.body.removeChild(downloadLink)
+  }
+
   const handlePrintNametag = () => {
-    const qrCanvas = document.getElementById("qr-code-canvas")
+    const qrCanvas = document.getElementById("nametag-qr-canvas") ?? document.getElementById("qr-code-canvas")
     const qrImage = qrCanvas instanceof HTMLCanvasElement ? qrCanvas.toDataURL() : ""
     const printWindow = window.open("", "_blank")
     if (printWindow) {
@@ -138,38 +286,172 @@ export default function QRGenerator() {
         ? getDepartment(selectedEmployee.departmentId, departmentList)?.name
         : customDepartment || "Bagian"
       const locationName = selectedEmployee ? getLocation(selectedEmployee.locationId, locationList)?.name : "Lokasi"
-      const employeeName = selectedEmployee?.name || customName || "Nama Karyawan"
-      const employeeNik = selectedEmployee?.nik || "CUSTOM"
+      const employeeName = escapeHtml(selectedEmployee?.name || customName || "Nama Karyawan")
+      const employeeNik = escapeHtml(selectedEmployee?.nik || "CUSTOM")
+      const employeeDepartment = escapeHtml(departmentName ?? "Bagian")
+      const employeeLocation = escapeHtml(locationName ?? "Lokasi")
+      const qrPayload = escapeHtml(qrValue)
 
       printWindow.document.write(`
         <html>
           <head>
             <title>Print Nametag</title>
             <style>
-              body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-              .nametag { width: 350px; border: 1px solid #ccc; padding: 20px; margin: 0 auto; text-align: center; }
-              .nametag-header { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-              .nametag-name { font-size: 24px; font-weight: bold; margin: 15px 0; }
-              .nametag-meta { font-size: 14px; margin-bottom: 8px; color: #444; }
-              .qr-code { margin: 12px auto 0; width: 150px; height: 150px; }
+              @page { size: 59.1mm 100.4mm; margin: 0; }
+              * { box-sizing: border-box; }
+              html, body { margin: 0; min-height: 100%; }
+              body {
+                display: grid;
+                place-items: center;
+                background: #eef2ee;
+                font-family: "Trebuchet MS", Arial, sans-serif;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+              .nametag {
+                position: relative;
+                width: 591px;
+                height: 1004px;
+                overflow: hidden;
+                background: #003f2d;
+                color: #fff;
+                text-align: center;
+                box-shadow: 0 24px 70px rgba(2, 26, 19, .28);
+              }
+              .background {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+              }
+              .content {
+                position: absolute;
+                inset: 356px 64px 142px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+              }
+              .label {
+                width: 100%;
+                color: #f4cf58;
+                font-size: 20px;
+                font-weight: 800;
+                letter-spacing: .14em;
+                text-transform: uppercase;
+              }
+              .name {
+                width: 100%;
+                margin-top: 18px;
+                color: #ffffff;
+                font-family: Georgia, "Times New Roman", serif;
+                font-size: 48px;
+                font-weight: 800;
+                line-height: 1.02;
+                overflow-wrap: anywhere;
+                text-transform: uppercase;
+                text-shadow: 0 3px 12px rgba(0, 0, 0, .22);
+              }
+              .rule {
+                width: 108px;
+                height: 4px;
+                margin: 22px 0 18px;
+                border-radius: 999px;
+                background: linear-gradient(90deg, transparent, #f8d76b, transparent);
+              }
+              .meta {
+                max-width: 100%;
+                color: #f4f7ed;
+                font-size: 24px;
+                font-weight: 700;
+                line-height: 1.22;
+                overflow-wrap: anywhere;
+              }
+              .location {
+                margin-top: 6px;
+                color: rgba(255, 255, 255, .82);
+                font-size: 17px;
+                font-weight: 700;
+                letter-spacing: .08em;
+                text-transform: uppercase;
+              }
+              .qr-card {
+                margin-top: auto;
+                width: 206px;
+                padding: 12px;
+                border: 3px solid #dfb635;
+                border-radius: 18px;
+                background: rgba(255, 255, 255, .96);
+                box-shadow: 0 16px 34px rgba(0, 0, 0, .28);
+              }
+              .qr-card img {
+                display: block;
+                width: 176px;
+                height: 176px;
+              }
+              .nik {
+                margin-top: 10px;
+                color: #f3d05c;
+                font-size: 18px;
+                font-weight: 900;
+                letter-spacing: .1em;
+              }
+              @media print {
+                body { background: transparent; }
+                .nametag {
+                  width: 59.1mm;
+                  height: 100.4mm;
+                  box-shadow: none;
+                }
+                .content { inset: 35.6mm 6.4mm 14.2mm; }
+                .label { font-size: 2mm; }
+                .name { margin-top: 1.8mm; font-size: 4.8mm; }
+                .rule { width: 10.8mm; height: .4mm; margin: 2.2mm 0 1.8mm; }
+                .meta { font-size: 2.4mm; }
+                .location { margin-top: .6mm; font-size: 1.7mm; }
+                .qr-card {
+                  width: 20.6mm;
+                  padding: 1.2mm;
+                  border-width: .3mm;
+                  border-radius: 1.8mm;
+                  box-shadow: none;
+                }
+                .qr-card img { width: 17.6mm; height: 17.6mm; }
+                .nik { margin-top: 1mm; font-size: 1.8mm; }
+              }
             </style>
           </head>
           <body>
             <div class="nametag">
-              <div class="nametag-header">ABSENSI PANITIA</div>
-              <div class="nametag-name">${employeeName}</div>
-              <div class="nametag-meta">${departmentName} - ${locationName}</div>
-              <div class="nametag-meta">NIK: ${employeeNik}</div>
-              <div class="qr-code">
-                <img src="${qrImage}" width="150" height="150" />
+              <img class="background" src="${NAMETAG_BACKGROUND_URL}" alt="" />
+              <div class="content">
+                <div class="label">Nametag Panitia</div>
+                <div class="name">${employeeName}</div>
+                <div class="rule"></div>
+                <div class="meta">${employeeDepartment}</div>
+                <div class="location">${employeeLocation}</div>
+                <div class="qr-card">
+                  <img src="${qrImage}" alt="QR ${qrPayload}" />
+                </div>
+                <div class="nik">NIK ${employeeNik}</div>
               </div>
             </div>
+            <script>
+              const background = document.querySelector(".background");
+              const printNametag = () => {
+                window.focus();
+                window.print();
+              };
+              if (background && !background.complete) {
+                background.addEventListener("load", () => setTimeout(printNametag, 120), { once: true });
+              } else {
+                setTimeout(printNametag, 120);
+              }
+            </script>
           </body>
         </html>
       `)
       printWindow.document.close()
-      printWindow.focus()
-      printWindow.print()
     }
   }
 
@@ -420,21 +702,41 @@ export default function QRGenerator() {
                   </TabsContent>
 
                   <TabsContent value="nametag">
-                    <div id="nametag-print-area" className="space-y-4 rounded-lg border border-border bg-white p-5 text-center">
+                    <div
+                      id="nametag-print-area"
+                      className="mx-auto aspect-[591/1004] w-full max-w-[300px] overflow-hidden rounded-xl border border-emerald-950/20 bg-emerald-950 shadow-xl"
+                    >
                       {qrValue ? (
-                        <>
-                          <div className="text-lg font-bold">ABSENSI PANITIA</div>
-                          <div className="text-2xl font-bold">{selectedEmployee?.name || customName || "Nama Karyawan"}</div>
-                          <div className="text-base text-muted-foreground">
-                            {selectedEmployee ? getDepartment(selectedEmployee.departmentId, departmentList)?.name : customDepartment || "Bagian"}
+                        <div
+                          className="relative h-full w-full bg-cover bg-center text-center text-white"
+                          style={{ backgroundImage: `url(${NAMETAG_BACKGROUND_URL})` }}
+                        >
+                          <div className="absolute inset-x-[10.8%] bottom-[14.1%] top-[35.5%] flex flex-col items-center">
+                            <div className="w-full text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#f4cf58]">
+                              Nametag Panitia
+                            </div>
+                            <div className="mt-2 w-full break-words font-serif text-[clamp(20px,8vw,31px)] font-extrabold uppercase leading-none text-white drop-shadow-md">
+                              {selectedEmployee?.name || customName || "Nama Karyawan"}
+                            </div>
+                            <div className="my-3 h-0.5 w-16 rounded-full bg-gradient-to-r from-transparent via-[#f8d76b] to-transparent" />
+                            <div className="w-full break-words text-sm font-bold leading-tight text-[#f4f7ed]">
+                              {selectedEmployee
+                                ? getDepartment(selectedEmployee.departmentId, departmentList)?.name
+                                : customDepartment || "Bagian"}
+                            </div>
+                            <div className="mt-1 w-full break-words text-[10px] font-bold uppercase tracking-wider text-white/80">
+                              {selectedEmployee ? getLocation(selectedEmployee.locationId, locationList)?.name : "Lokasi"}
+                            </div>
+                            <div className="mt-auto rounded-lg border-2 border-[#dfb635] bg-white/95 p-2 shadow-lg">
+                              <QRCodeSVG value={qrValue} size={88} includeMargin={true} level="H" />
+                            </div>
+                            <div className="mt-2 text-[11px] font-black tracking-widest text-[#f3d05c]">
+                              NIK {selectedEmployee?.nik || "CUSTOM"}
+                            </div>
                           </div>
-                          <div className="text-sm text-muted-foreground">NIK: {selectedEmployee?.nik || "CUSTOM"}</div>
-                          <div className="flex justify-center py-2">
-                            <QRCodeSVG value={qrValue} size={150} includeMargin={true} level="H" />
-                          </div>
-                        </>
+                        </div>
                       ) : (
-                        <div className="empty-panel">
+                        <div className="empty-panel h-full">
                           <p>Pilih karyawan untuk melihat preview nametag.</p>
                         </div>
                       )}
@@ -442,6 +744,13 @@ export default function QRGenerator() {
 
                     {qrValue && (
                       <div className="mt-4 flex flex-col gap-2">
+                        <div className="sr-only">
+                          <QRCodeCanvas id="nametag-qr-canvas" value={qrValue} size={220} includeMargin={true} level="H" />
+                        </div>
+                        <Button onClick={handleDownloadNametag}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download Nametag
+                        </Button>
                         <Button onClick={handlePrintNametag}>
                           <Printer className="h-4 w-4 mr-2" />
                           Print Nametag
