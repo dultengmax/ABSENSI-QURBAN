@@ -179,12 +179,15 @@
   }
 
   .scanner-ready-frame {
-    @apply grid h-24 w-24 place-items-center rounded-lg border-2 border-primary/40 bg-background shadow-sm;
+    @apply grid h-24 w-24 place-items-center rounded-[1.75rem] border-2 border-primary/40 bg-background shadow-sm;
     box-shadow: inset 0 0 0 8px hsl(var(--primary) / 0.06);
   }
 
   .scanner-camera-shell {
-    @apply overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-sm;
+    @apply overflow-hidden rounded-[1.75rem] border border-slate-800 bg-slate-950 shadow-sm;
+    box-shadow:
+      0 22px 55px rgba(15, 23, 42, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .scanner-camera-header {
@@ -196,11 +199,18 @@
   }
 
   .scanner-reader {
-    @apply min-h-[316px] overflow-hidden rounded-md border-0 bg-slate-950 text-white sm:min-h-[396px];
+    @apply min-h-[316px] overflow-hidden rounded-[1.35rem] border-0 bg-slate-950 text-white sm:min-h-[396px];
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   }
 
   .scanner-frame-overlay {
-    @apply pointer-events-none absolute left-1/2 top-1/2 hidden h-56 w-56 -translate-x-1/2 -translate-y-1/2 sm:block;
+    @apply pointer-events-none absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2;
+    filter: drop-shadow(0 0 18px rgba(52, 211, 153, 0.36));
+  }
+
+  .scanner-frame-overlay::after {
+    @apply absolute inset-4 rounded-[2rem] border border-white/20;
+    content: "";
   }
 
   .scanner-frame-overlay span {
@@ -208,19 +218,19 @@
   }
 
   .scanner-frame-overlay span:nth-child(1) {
-    @apply left-0 top-0 rounded-tl-lg border-b-0 border-r-0;
+    @apply left-0 top-0 rounded-tl-[2rem] border-b-0 border-r-0;
   }
 
   .scanner-frame-overlay span:nth-child(2) {
-    @apply right-0 top-0 rounded-tr-lg border-b-0 border-l-0;
+    @apply right-0 top-0 rounded-tr-[2rem] border-b-0 border-l-0;
   }
 
   .scanner-frame-overlay span:nth-child(3) {
-    @apply bottom-0 left-0 rounded-bl-lg border-r-0 border-t-0;
+    @apply bottom-0 left-0 rounded-bl-[2rem] border-r-0 border-t-0;
   }
 
   .scanner-frame-overlay span:nth-child(4) {
-    @apply bottom-0 right-0 rounded-br-lg border-l-0 border-t-0;
+    @apply bottom-0 right-0 rounded-br-[2rem] border-l-0 border-t-0;
   }
 
   .scanner-reader #qr-reader__scan_region {
@@ -228,7 +238,11 @@
   }
 
   .scanner-reader video {
-    @apply rounded-md;
+    @apply h-full w-full rounded-[1.35rem] object-cover;
+  }
+
+  .scanner-reader canvas {
+    @apply rounded-[1.35rem];
   }
 
   .scanner-reader img {

@@ -199,10 +199,7 @@ export default function QRGenerator() {
       return
     }
 
-    const departmentName = selectedEmployee
-      ? getDepartment(selectedEmployee.departmentId, departmentList)?.name
-      : customDepartment || "Bagian"
-    const locationName = selectedEmployee ? getLocation(selectedEmployee.locationId, locationList)?.name : "Lokasi"
+    const positionName = selectedEmployee ? selectedEmployee.position : customDepartment || "Jabatan"
     const employeeName = selectedEmployee?.name || customName || "Nama Karyawan"
     const employeeNik = selectedEmployee?.nik || "CUSTOM"
     const fileNik = sanitizeFileName(employeeNik) || "custom"
@@ -220,16 +217,12 @@ export default function QRGenerator() {
     context.textAlign = "center"
     context.textBaseline = "top"
 
-    context.fillStyle = "#f4cf58"
-    context.font = "800 20px Trebuchet MS, Arial, sans-serif"
-    context.fillText("NAMETAG PANITIA", canvas.width / 2, 356)
-
     context.fillStyle = "#ffffff"
     context.font = "800 48px Georgia, Times New Roman, serif"
     context.shadowColor = "rgba(0, 0, 0, 0.26)"
     context.shadowBlur = 12
     context.shadowOffsetY = 3
-    const afterNameY = drawWrappedCenteredText(context, employeeName.toUpperCase(), canvas.width / 2, 394, 462, 52, 2)
+    const afterNameY = drawWrappedCenteredText(context, employeeName.toUpperCase(), canvas.width / 2, 372, 462, 52, 2)
     context.shadowColor = "transparent"
     context.shadowBlur = 0
     context.shadowOffsetY = 0
@@ -244,30 +237,26 @@ export default function QRGenerator() {
 
     context.fillStyle = "#f4f7ed"
     context.font = "700 24px Trebuchet MS, Arial, sans-serif"
-    const afterDepartmentY = drawWrappedCenteredText(context, departmentName ?? "Bagian", canvas.width / 2, ruleY + 22, 462, 30, 2)
+    drawWrappedCenteredText(context, positionName || "Jabatan", canvas.width / 2, ruleY + 22, 462, 30, 2)
 
-    context.fillStyle = "rgba(255, 255, 255, 0.82)"
-    context.font = "700 17px Trebuchet MS, Arial, sans-serif"
-    context.fillText((locationName ?? "Lokasi").toUpperCase(), canvas.width / 2, afterDepartmentY + 6)
-
-    const qrX = 193
-    const qrY = 674
+    const qrX = 163
+    const qrY = 636
     context.shadowColor = "rgba(0, 0, 0, 0.28)"
     context.shadowBlur = 34
     context.shadowOffsetY = 16
     context.fillStyle = "rgba(255, 255, 255, 0.96)"
-    context.fillRect(qrX, qrY, 206, 206)
+    context.fillRect(qrX, qrY, 266, 266)
     context.shadowColor = "transparent"
     context.shadowBlur = 0
     context.shadowOffsetY = 0
     context.strokeStyle = "#dfb635"
     context.lineWidth = 3
-    context.strokeRect(qrX + 1.5, qrY + 1.5, 203, 203)
-    context.drawImage(qrCanvas, qrX + 15, qrY + 15, 176, 176)
+    context.strokeRect(qrX + 1.5, qrY + 1.5, 263, 263)
+    context.drawImage(qrCanvas, qrX + 18, qrY + 18, 230, 230)
 
     context.fillStyle = "#f3d05c"
     context.font = "900 18px Trebuchet MS, Arial, sans-serif"
-    context.fillText(`NIK ${employeeNik}`, canvas.width / 2, 890)
+    context.fillText(`NIK ${employeeNik}`, canvas.width / 2, 918)
 
     const downloadLink = document.createElement("a")
     downloadLink.href = canvas.toDataURL("image/png")
@@ -282,14 +271,10 @@ export default function QRGenerator() {
     const qrImage = qrCanvas instanceof HTMLCanvasElement ? qrCanvas.toDataURL() : ""
     const printWindow = window.open("", "_blank")
     if (printWindow) {
-      const departmentName = selectedEmployee
-        ? getDepartment(selectedEmployee.departmentId, departmentList)?.name
-        : customDepartment || "Bagian"
-      const locationName = selectedEmployee ? getLocation(selectedEmployee.locationId, locationList)?.name : "Lokasi"
+      const positionName = selectedEmployee ? selectedEmployee.position : customDepartment || "Jabatan"
       const employeeName = escapeHtml(selectedEmployee?.name || customName || "Nama Karyawan")
       const employeeNik = escapeHtml(selectedEmployee?.nik || "CUSTOM")
-      const employeeDepartment = escapeHtml(departmentName ?? "Bagian")
-      const employeeLocation = escapeHtml(locationName ?? "Lokasi")
+      const employeePosition = escapeHtml(positionName || "Jabatan")
       const qrPayload = escapeHtml(qrValue)
 
       printWindow.document.write(`
@@ -332,17 +317,8 @@ export default function QRGenerator() {
                 flex-direction: column;
                 align-items: center;
               }
-              .label {
-                width: 100%;
-                color: #f4cf58;
-                font-size: 20px;
-                font-weight: 800;
-                letter-spacing: .14em;
-                text-transform: uppercase;
-              }
               .name {
                 width: 100%;
-                margin-top: 18px;
                 color: #ffffff;
                 font-family: Georgia, "Times New Roman", serif;
                 font-size: 48px;
@@ -367,18 +343,10 @@ export default function QRGenerator() {
                 line-height: 1.22;
                 overflow-wrap: anywhere;
               }
-              .location {
-                margin-top: 6px;
-                color: rgba(255, 255, 255, .82);
-                font-size: 17px;
-                font-weight: 700;
-                letter-spacing: .08em;
-                text-transform: uppercase;
-              }
               .qr-card {
                 margin-top: auto;
-                width: 206px;
-                padding: 12px;
+                width: 266px;
+                padding: 15px;
                 border: 3px solid #dfb635;
                 border-radius: 18px;
                 background: rgba(255, 255, 255, .96);
@@ -386,8 +354,8 @@ export default function QRGenerator() {
               }
               .qr-card img {
                 display: block;
-                width: 176px;
-                height: 176px;
+                width: 230px;
+                height: 230px;
               }
               .nik {
                 margin-top: 10px;
@@ -404,19 +372,17 @@ export default function QRGenerator() {
                   box-shadow: none;
                 }
                 .content { inset: 35.6mm 6.4mm 14.2mm; }
-                .label { font-size: 2mm; }
-                .name { margin-top: 1.8mm; font-size: 4.8mm; }
+                .name { font-size: 4.8mm; }
                 .rule { width: 10.8mm; height: .4mm; margin: 2.2mm 0 1.8mm; }
                 .meta { font-size: 2.4mm; }
-                .location { margin-top: .6mm; font-size: 1.7mm; }
                 .qr-card {
-                  width: 20.6mm;
-                  padding: 1.2mm;
+                  width: 26.6mm;
+                  padding: 1.5mm;
                   border-width: .3mm;
                   border-radius: 1.8mm;
                   box-shadow: none;
                 }
-                .qr-card img { width: 17.6mm; height: 17.6mm; }
+                .qr-card img { width: 23mm; height: 23mm; }
                 .nik { margin-top: 1mm; font-size: 1.8mm; }
               }
             </style>
@@ -425,11 +391,9 @@ export default function QRGenerator() {
             <div class="nametag">
               <img class="background" src="${NAMETAG_BACKGROUND_URL}" alt="" />
               <div class="content">
-                <div class="label">Nametag Panitia</div>
                 <div class="name">${employeeName}</div>
                 <div class="rule"></div>
-                <div class="meta">${employeeDepartment}</div>
-                <div class="location">${employeeLocation}</div>
+                <div class="meta">${employeePosition}</div>
                 <div class="qr-card">
                   <img src="${qrImage}" alt="QR ${qrPayload}" />
                 </div>
@@ -613,10 +577,10 @@ export default function QRGenerator() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="custom-department">Bagian</Label>
+                    <Label htmlFor="custom-department">Jabatan</Label>
                     <Input
                       id="custom-department"
-                      placeholder="Bagian"
+                      placeholder="Jabatan"
                       value={customDepartment}
                       onChange={(event) => setCustomDepartment(event.target.value)}
                     />
@@ -712,23 +676,15 @@ export default function QRGenerator() {
                           style={{ backgroundImage: `url(${NAMETAG_BACKGROUND_URL})` }}
                         >
                           <div className="absolute inset-x-[10.8%] bottom-[14.1%] top-[35.5%] flex flex-col items-center">
-                            <div className="w-full text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#f4cf58]">
-                              Nametag Panitia
-                            </div>
-                            <div className="mt-2 w-full break-words font-serif text-[clamp(20px,8vw,31px)] font-extrabold uppercase leading-none text-white drop-shadow-md">
+                            <div className="w-full break-words font-serif text-[clamp(20px,8vw,31px)] font-extrabold uppercase leading-none text-white drop-shadow-md">
                               {selectedEmployee?.name || customName || "Nama Karyawan"}
                             </div>
                             <div className="my-3 h-0.5 w-16 rounded-full bg-gradient-to-r from-transparent via-[#f8d76b] to-transparent" />
                             <div className="w-full break-words text-sm font-bold leading-tight text-[#f4f7ed]">
-                              {selectedEmployee
-                                ? getDepartment(selectedEmployee.departmentId, departmentList)?.name
-                                : customDepartment || "Bagian"}
+                              {selectedEmployee ? selectedEmployee.position : customDepartment || "Jabatan"}
                             </div>
-                            <div className="mt-1 w-full break-words text-[10px] font-bold uppercase tracking-wider text-white/80">
-                              {selectedEmployee ? getLocation(selectedEmployee.locationId, locationList)?.name : "Lokasi"}
-                            </div>
-                            <div className="mt-auto rounded-lg border-2 border-[#dfb635] bg-white/95 p-2 shadow-lg">
-                              <QRCodeSVG value={qrValue} size={88} includeMargin={true} level="H" />
+                            <div className="mt-auto rounded-lg border-2 border-[#dfb635] bg-white/95 p-2.5 shadow-lg">
+                              <QRCodeSVG value={qrValue} size={116} includeMargin={true} level="H" />
                             </div>
                             <div className="mt-2 text-[11px] font-black tracking-widest text-[#f3d05c]">
                               NIK {selectedEmployee?.nik || "CUSTOM"}
@@ -745,7 +701,7 @@ export default function QRGenerator() {
                     {qrValue && (
                       <div className="mt-4 flex flex-col gap-2">
                         <div className="sr-only">
-                          <QRCodeCanvas id="nametag-qr-canvas" value={qrValue} size={220} includeMargin={true} level="H" />
+                          <QRCodeCanvas id="nametag-qr-canvas" value={qrValue} size={280} includeMargin={true} level="H" />
                         </div>
                         <Button onClick={handleDownloadNametag}>
                           <Download className="h-4 w-4 mr-2" />

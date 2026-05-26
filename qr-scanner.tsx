@@ -24,7 +24,7 @@ import {
   User,
   XCircle,
 } from "lucide-react"
-import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from "html5-qrcode"
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode"
 
 import {
   type AttendanceSession,
@@ -125,6 +125,7 @@ type ScannerScanNotice =
     }
 
 const LOGISTICS_QR_PREFIX = "QURBAN_LOGISTICS:"
+const CAMERA_SCAN_COOLDOWN_MS = 1200
 
 export default function QRScanner() {
   const [departmentList, setDepartmentList] = useState<Department[]>(initialDepartments)
@@ -145,8 +146,11 @@ export default function QRScanner() {
   const [isScanning, setIsScanning] = useState(false)
   const [scannerInitialized, setScannerInitialized] = useState(false)
   const [recentScans, setRecentScans] = useState<RecentScan[]>([])
-  const scannerRef = useRef<any>(null)
+  const scannerRef = useRef<Html5Qrcode | null>(null)
   const scannerContainerRef = useRef<HTMLDivElement>(null)
+  const activeScanPayloadsRef = useRef<Set<string>>(new Set())
+  const processingScanCountRef = useRef(0)
+  const lastCameraScanRef = useRef<{ payload: string; scannedAt: number } | null>(null)
 
   const selectedLocation = locationList.find((location) => location.id === Number(selectedLocationId)) ?? locationList[0] ?? initialLocations[0]
   const selectedWindow = getSessionWindow(selectedLocation, selectedSessionType)
@@ -221,82 +225,130 @@ export default function QRScanner() {
     }
   }, [locationList, selectedLocationId])
 
-  useEffect(() => {
-    if (isScanning && !scannerInitialized && scannerContainerRef.current) {
-      try {
-        scannerContainerRef.current.innerHTML = ""
-        scannerRef.current = new Html5QrcodeScanner(
-          "qr-reader",
-          {
-            fps: 12,
-            qrbox: { width: 300, height: 220 },
-            formatsToSupport: [
-              Html5QrcodeSupportedFormats.QR_CODE,
-              Html5QrcodeSupportedFormats.CODE_128,
-              Html5QrcodeSupportedFormats.CODE_39,
-              Html5QrcodeSupportedFormats.CODE_93,
-              Html5QrcodeSupportedFormats.EAN_13,
-              Html5QrcodeSupportedFormats.EAN_8,
-              Html5QrcodeSupportedFormats.UPC_A,
-              Html5QrcodeSupportedFormats.UPC_E,
-              Html5QrcodeSupportedFormats.ITF,
-            ],
-          },
-          false,
-        )
-        scannerRef.current.render(onScanSuccess, onScanFailure)
-        setScannerInitialized(true)
-      } catch (err) {
-        console.error("Error initializing scanner:", err)
+  const stopActiveScanner = async () => {
+    const scanner = scannerRef.current
+    if (!scanner) return
+
+    scannerRef.current = null
+
+    try {
+      if (scanner.isScanning) {
+        await scanner.stop()
       }
+      scanner.clear()
+    } catch (err) {
+      console.error("Error stopping scanner:", err)
+    } finally {
+      if (scannerContainerRef.current) {
+        scannerContainerRef.current.innerHTML = ""
+      }
+      setScannerInitialized(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!isScanning || !scannerContainerRef.current || scannerRef.current) {
+      return
     }
 
-    return () => {
-      if (scannerRef.current && scannerInitialized) {
-        try {
-          scannerRef.current.clear()
-        } catch (err) {
-          console.error("Error clearing scanner:", err)
+    let isCancelled = false
+    scannerContainerRef.current.innerHTML = ""
+
+    const scanner = new Html5Qrcode("qr-reader", {
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.CODE_93,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.ITF,
+      ],
+      verbose: false,
+    })
+
+    scannerRef.current = scanner
+
+    scanner
+      .start(
+        { facingMode: { ideal: "environment" } },
+        {
+          fps: 18,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const width = Math.max(180, Math.min(320, viewfinderWidth - 48))
+            const height = Math.max(160, Math.min(260, viewfinderHeight - 64))
+
+            return { width, height }
+          },
+          aspectRatio: 1.333,
+        },
+        onScanSuccess,
+        onScanFailure,
+      )
+      .then(() => {
+        if (isCancelled) {
+          void stopActiveScanner()
+          return
         }
-      }
+
+        setScannerInitialized(true)
+      })
+      .catch((err) => {
+        console.error("Error initializing scanner:", err)
+        scannerRef.current = null
+        setScannerInitialized(false)
+        setIsScanning(false)
+      })
+
+    return () => {
+      isCancelled = true
+      void stopActiveScanner()
     }
-  }, [isScanning, scannerInitialized])
+  }, [isScanning])
 
   const startScanner = () => {
     setScanResult(null)
     setScanNotice(null)
     setAttendanceInfo(null)
+    lastCameraScanRef.current = null
     setIsScanning(true)
   }
 
   const stopScanner = () => {
-    if (scannerRef.current && scannerInitialized) {
-      try {
-        scannerRef.current.clear()
-        setScannerInitialized(false)
-      } catch (err) {
-        console.error("Error stopping scanner:", err)
-      }
-    }
     setIsScanning(false)
+    lastCameraScanRef.current = null
+    void stopActiveScanner()
   }
 
   const onScanSuccess = (decodedText: string) => {
-    stopScanner()
-    processQrPayload(decodedText, "QR")
+    const qrCode = decodedText.trim()
+    if (!qrCode || activeScanPayloadsRef.current.has(qrCode)) {
+      return
+    }
+
+    const now = Date.now()
+    const lastScan = lastCameraScanRef.current
+    if (lastScan?.payload === qrCode && now - lastScan.scannedAt < CAMERA_SCAN_COOLDOWN_MS) {
+      return
+    }
+
+    lastCameraScanRef.current = { payload: qrCode, scannedAt: now }
+    void processQrPayload(qrCode, "QR")
   }
 
-  const onScanFailure = (error: any) => {
-    console.warn(`QR scan error: ${error}`)
-  }
+  const onScanFailure = () => {}
 
   const processQrPayload = async (payload: string, method: "QR" | "MANUAL") => {
     const qrCode = payload.trim()
-    if (!qrCode || isProcessingScan) return
+    if (!qrCode || activeScanPayloadsRef.current.has(qrCode)) return
 
     setScanResult(qrCode)
     setScanNotice(null)
     setAttendanceInfo(null)
+    activeScanPayloadsRef.current.add(qrCode)
+    processingScanCountRef.current += 1
     setIsProcessingScan(true)
 
     try {
@@ -359,7 +411,9 @@ export default function QRScanner() {
       })
       addRecentScan("Scan gagal", qrCode, selectedSessionType, false, message)
     } finally {
-      setIsProcessingScan(false)
+      activeScanPayloadsRef.current.delete(qrCode)
+      processingScanCountRef.current = Math.max(0, processingScanCountRef.current - 1)
+      setIsProcessingScan(processingScanCountRef.current > 0)
     }
   }
 
@@ -546,7 +600,7 @@ export default function QRScanner() {
                   <ScanLine className="h-5 w-5" />
                   Scan Barcode / QR
                 </CardTitle>
-                <CardDescription>Arahkan kode ke area bidik. Hasil scan akan langsung dicatat ke database.</CardDescription>
+                <CardDescription>Arahkan kode ke area bidik. Setelah tersimpan, scanner tetap aktif untuk QR berikutnya.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm sm:grid-cols-3">
@@ -592,7 +646,9 @@ export default function QRScanner() {
                           <p className="text-sm font-semibold text-white">Kamera aktif</p>
                           <p className="text-xs text-white/70">Posisikan barcode atau QR di dalam bingkai.</p>
                         </div>
-                        <Badge className="bg-emerald-500 text-white hover:bg-emerald-500">Live</Badge>
+                        <Badge className="bg-emerald-500 text-white hover:bg-emerald-500">
+                          {scannerInitialized ? "Live" : "Membuka"}
+                        </Badge>
                       </div>
                       <div className="scanner-viewport">
                         <div ref={scannerContainerRef} id="qr-reader" className="scanner-reader"></div>
@@ -606,7 +662,7 @@ export default function QRScanner() {
                     </div>
                     <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
                       <p className="text-sm text-muted-foreground">
-                        Tips: naikkan kecerahan layar kode, hindari pantulan cahaya, lalu tahan 1-2 detik.
+                        Tips: arahkan QR ke tengah frame, tunggu hasil scan, lalu langsung lanjutkan ke QR berikutnya.
                       </p>
                       <Button variant="outline" onClick={stopScanner} className="sm:w-auto">
                         Tutup Kamera
@@ -695,10 +751,17 @@ export default function QRScanner() {
               </CardContent>
               {scanNotice && (
                 <CardFooter>
-                  <Button onClick={resetScan} className="w-full" disabled={isProcessingScan}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Scan QR Lain
-                  </Button>
+                  {isScanning ? (
+                    <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+                      <ScanLine className="h-4 w-4" />
+                      Scanner tetap aktif. Arahkan QR berikutnya.
+                    </div>
+                  ) : (
+                    <Button onClick={resetScan} className="w-full" disabled={isProcessingScan}>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Buka Scanner Lagi
+                    </Button>
+                  )}
                 </CardFooter>
               )}
             </Card>
