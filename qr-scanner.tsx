@@ -921,13 +921,13 @@ async function startMobileCamera(
   }
 
   try {
-    return await scanner.start({ facingMode: "environment" }, scanConfig, onScanSuccess, onScanFailure)
+    return await scanner.start({ facingMode: { exact: "environment" } }, scanConfig, onScanSuccess, onScanFailure)
   } catch (error) {
     if (!isCameraConstraintError(error)) {
       throw error
     }
 
-    return scanner.start({ facingMode: "user" }, scanConfig, onScanSuccess, onScanFailure)
+    return scanner.start({ facingMode: { exact: "user" } }, scanConfig, onScanSuccess, onScanFailure)
   }
 }
 
@@ -939,6 +939,7 @@ function isCameraConstraintError(error: unknown) {
     lowerMessage.includes("overconstrained") ||
     lowerMessage.includes("constraint") ||
     lowerMessage.includes("facingmode") ||
+    lowerMessage.includes("facing mode") ||
     lowerMessage.includes("requested device not found")
   )
 }
@@ -957,6 +958,10 @@ function getCameraErrorMessage(error: unknown) {
 
   if (lowerMessage.includes("secure") || lowerMessage.includes("https")) {
     return "Kamera mobile hanya bisa dibuka lewat HTTPS atau localhost."
+  }
+
+  if (lowerMessage.includes("facingmode") || lowerMessage.includes("facing mode")) {
+    return "Mode kamera tidak cocok di perangkat ini. Coba buka scanner lagi."
   }
 
   return message || "Kamera belum bisa dibuka. Periksa izin kamera dan coba lagi."
