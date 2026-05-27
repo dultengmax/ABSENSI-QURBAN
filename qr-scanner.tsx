@@ -24,7 +24,13 @@ import {
   User,
   XCircle,
 } from "lucide-react"
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode"
+import {
+  Html5Qrcode,
+  Html5QrcodeSupportedFormats,
+  type Html5QrcodeCameraScanConfig,
+  type QrcodeErrorCallback,
+  type QrcodeSuccessCallback,
+} from "html5-qrcode"
 
 import {
   type AttendanceSession,
@@ -272,31 +278,32 @@ export default function QRScanner() {
 
     scannerRef.current = scanner
 
-    scanner
-      .start(
-        { facingMode: { ideal: "environment" } },
-        {
-          fps: 18,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const width = Math.max(180, Math.min(320, viewfinderWidth - 48))
-            const height = Math.max(160, Math.min(260, viewfinderHeight - 64))
+    const openingTimeout = window.setTimeout(() => {
+      if (isCancelled || !scannerRef.current || scannerInitialized) return
 
-            return { width, height }
-          },
-          aspectRatio: 1.333,
-        },
-        onScanSuccess,
-        onScanFailure,
-      )
+      void stopActiveScanner()
+      setIsScanning(false)
+      setScanNotice({
+        success: false,
+        code: "CAMERA_TIMEOUT",
+        message: "Kamera belum muncul. Pastikan izin kamera aktif, tutup tab lain yang memakai kamera, lalu coba buka lagi.",
+      })
+    }, 10000)
+
+    startMobileCamera(scanner, onScanSuccess, onScanFailure)
       .then(() => {
+        window.clearTimeout(openingTimeout)
+
         if (isCancelled) {
           void stopActiveScanner()
           return
         }
 
         setScannerInitialized(true)
+        setScanNotice(null)
       })
       .catch((err) => {
+        window.clearTimeout(openingTimeout)
         console.error("Error initializing scanner:", err)
         scannerRef.current = null
         setScannerInitialized(false)
@@ -310,6 +317,7 @@ export default function QRScanner() {
 
     return () => {
       isCancelled = true
+      window.clearTimeout(openingTimeout)
       void stopActiveScanner()
     }
   }, [isScanning])
@@ -894,6 +902,45 @@ function canUseCameraOnCurrentOrigin() {
 
   const hostname = window.location.hostname
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
+}
+
+async function startMobileCamera(
+  scanner: Html5Qrcode,
+  onScanSuccess: QrcodeSuccessCallback,
+  onScanFailure: QrcodeErrorCallback,
+) {
+  const scanConfig: Html5QrcodeCameraScanConfig = {
+    fps: 18,
+    qrbox: (viewfinderWidth, viewfinderHeight) => {
+      const width = Math.max(180, Math.min(320, viewfinderWidth - 48))
+      const height = Math.max(160, Math.min(260, viewfinderHeight - 64))
+
+      return { width, height }
+    },
+    disableFlip: true,
+  }
+
+  try {
+    return await scanner.start({ facingMode: "environment" }, scanConfig, onScanSuccess, onScanFailure)
+  } catch (error) {
+    if (!isCameraConstraintError(error)) {
+      throw error
+    }
+
+    return scanner.start({ facingMode: "user" }, scanConfig, onScanSuccess, onScanFailure)
+  }
+}
+
+function isCameraConstraintError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "")
+  const lowerMessage = message.toLowerCase()
+
+  return (
+    lowerMessage.includes("overconstrained") ||
+    lowerMessage.includes("constraint") ||
+    lowerMessage.includes("facingmode") ||
+    lowerMessage.includes("requested device not found")
+  )
 }
 
 function getCameraErrorMessage(error: unknown) {
