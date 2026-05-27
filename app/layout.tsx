@@ -1,6 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import ClientLayout from "./clientLayout"
+import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default function RootLayout({
     <html lang="id">
       <body>
         <ClientLayout>{children}</ClientLayout>
+        <Toaster />
       </body>
     </html>
   )

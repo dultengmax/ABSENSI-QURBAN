@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
 import {
   AlertCircle,
   Calendar,
@@ -134,6 +135,7 @@ const LOGISTICS_QR_PREFIX = "QURBAN_LOGISTICS:"
 const CAMERA_SCAN_COOLDOWN_MS = 1200
 
 export default function QRScanner() {
+  const { toast } = useToast()
   const [departmentList, setDepartmentList] = useState<Department[]>(initialDepartments)
   const [locationList, setLocationList] = useState<Location[]>(initialLocations)
   const [masterDataError, setMasterDataError] = useState<string | null>(null)
@@ -173,6 +175,25 @@ export default function QRScanner() {
       locations: locationList,
     }).find((row) => row.employee.id === attendanceInfo.id)
   }, [attendanceInfo, attendanceSessions, departmentList, employeeList, locationList, scanDate])
+
+  useEffect(() => {
+    if (!scanNotice) return
+
+    const previousScanText =
+      !scanNotice.success && scanNotice.previousScan
+        ? ` Scan sebelumnya: ${formatScanTime(scanNotice.previousScan.scannedAt)}`
+        : ""
+
+    toast({
+      title: scanNotice.success ? "Scan Berhasil" : scanNotice.code,
+      description: `${scanNotice.message}${previousScanText}`,
+      variant: scanNotice.success ? "default" : "destructive",
+      className: scanNotice.success
+        ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+        : "border-red-200 bg-red-50 text-red-950",
+      duration: 5000,
+    })
+  }, [scanNotice, toast])
 
   useEffect(() => {
     async function loadData() {
