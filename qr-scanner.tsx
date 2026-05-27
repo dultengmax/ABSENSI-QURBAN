@@ -154,6 +154,7 @@ export default function QRScanner() {
 
   const selectedLocation = locationList.find((location) => location.id === Number(selectedLocationId)) ?? locationList[0] ?? initialLocations[0]
   const selectedWindow = getSessionWindow(selectedLocation, selectedSessionType)
+  const activeLocationId = selectedLocationId || (selectedLocation ? String(selectedLocation.id) : "")
 
   const activeStatus = useMemo(() => {
     if (!attendanceInfo) return null
@@ -216,7 +217,7 @@ export default function QRScanner() {
 
   useEffect(() => {
     if (locationList.length === 0) {
-      setSelectedLocationId("")
+      setSelectedLocationId(String(initialLocations[0].id))
       return
     }
 
@@ -300,6 +301,11 @@ export default function QRScanner() {
         scannerRef.current = null
         setScannerInitialized(false)
         setIsScanning(false)
+        setScanNotice({
+          success: false,
+          code: "CAMERA_ERROR",
+          message: getCameraErrorMessage(err),
+        })
       })
 
     return () => {
@@ -309,6 +315,28 @@ export default function QRScanner() {
   }, [isScanning])
 
   const startScanner = () => {
+    if (!activeLocationId) {
+      setScanNotice({
+        success: false,
+        code: "LOCATION_REQUIRED",
+        message: "Lokasi scan belum siap. Muat ulang halaman lalu coba lagi.",
+      })
+      return
+    }
+
+    if (selectedLocationId !== activeLocationId) {
+      setSelectedLocationId(activeLocationId)
+    }
+
+    if (!canUseCameraOnCurrentOrigin()) {
+      setScanNotice({
+        success: false,
+        code: "HTTPS_REQUIRED",
+        message: "Kamera di mobile harus dibuka lewat HTTPS. Jika memakai HP, gunakan domain HTTPS atau jalankan dari localhost perangkat.",
+      })
+      return
+    }
+
     setScanResult(null)
     setScanNotice(null)
     setAttendanceInfo(null)
@@ -362,7 +390,7 @@ export default function QRScanner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           qrCode,
-          locationId: Number(selectedLocationId),
+          locationId: Number(activeLocationId),
           sessionType: selectedSessionType,
           scannedAt: combineDateAndTime(scanDate, scanTime),
           scanMethod: method,
@@ -631,7 +659,7 @@ export default function QRScanner() {
                         Pastikan kamera aktif, kode terlihat penuh, dan jarak perangkat stabil agar terbaca lebih cepat.
                       </p>
                     </div>
-                    <Button size="lg" onClick={startScanner} disabled={isProcessingScan || !selectedLocationId}>
+                    <Button size="lg" onClick={startScanner} disabled={isProcessingScan}>
                       <Camera className="mr-2 h-4 w-4" />
                       Buka Kamera
                     </Button>
@@ -802,7 +830,7 @@ export default function QRScanner() {
                 )}
               </CardContent>
               <CardFooter>
-                <Button variant="outline" onClick={startScanner} className="w-full" disabled={isProcessingScan || !selectedLocationId}>
+                <Button variant="outline" onClick={startScanner} className="w-full" disabled={isProcessingScan}>
                   <Camera className="h-4 w-4 mr-2" />
                   Scan QR Baru
                 </Button>
@@ -858,4 +886,31 @@ function createLogisticsScanSession(
     lateMinutes: 0,
     note: qrCode,
   }
+}
+
+function canUseCameraOnCurrentOrigin() {
+  if (typeof window === "undefined") return true
+  if (window.isSecureContext) return true
+
+  const hostname = window.location.hostname
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
+}
+
+function getCameraErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "")
+  const lowerMessage = message.toLowerCase()
+
+  if (lowerMessage.includes("permission") || lowerMessage.includes("notallowed")) {
+    return "Izin kamera ditolak. Aktifkan izin kamera di browser lalu coba lagi."
+  }
+
+  if (lowerMessage.includes("notfound") || lowerMessage.includes("no camera")) {
+    return "Kamera tidak ditemukan di perangkat ini."
+  }
+
+  if (lowerMessage.includes("secure") || lowerMessage.includes("https")) {
+    return "Kamera mobile hanya bisa dibuka lewat HTTPS atau localhost."
+  }
+
+  return message || "Kamera belum bisa dibuka. Periksa izin kamera dan coba lagi."
 }
